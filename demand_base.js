@@ -68,7 +68,7 @@ async function getDataFromPage(url, limit) {
     console.log(`total elements avalible : ${totalNumber}`);
 
     let rows = await page.$$('.people-lists__list');
-     total_rows = rows.length;
+    total_rows = rows.length;
     console.log(`Rows found: ${total_rows}`);
     let row = rows[0];
     let maxRetries = 10;
@@ -77,52 +77,79 @@ async function getDataFromPage(url, limit) {
     const data = [];
     let total_indexed = 0;
     let r_num = 0;
+    const uniqueRecords = new Set();
+    let continue_search = true;
+    let uniq_not_found = 0;
+    while (total_indexed < totalNumber&& continue_search) {
 
-    while (total_indexed < totalNumber) {
-        
         r_num = 0;
-            // for (let index = 0; index < total_rows && total_indexed < totalNumber; index++) {
-            for (let index = 0; index < total_rows  ; index++) {
-                const nameElement = await rows[index].$('.people-lists__list__contacts__details__name');
-                try {
-                    let check_name = await nameElement.innerText();
-                    console.log('check_name:', check_name);
-                    rows = await page.$$('.people-lists__list');
-                    const rowToClick = rows[index];
-                    console.log('clicking row index:', index);
-                    await rowToClick.click();
+        for (let index = 0; index < total_rows; index++) {
+            const nameElement = await rows[index].$('.people-lists__list__contacts__details__name');
+            try {
+                let check_name = await nameElement.innerText();
+                console.log('check_name:', check_name);
+                let click_index_need = true;
+                for (let click_index = 0; click_index < 3 && click_index_need; click_index++) {
+                    try {
+                        rows = await page.$$('.people-lists__list');
+                        const rowToClick = rows[index];
+                        console.log('clicking row index:', index);
+                        await rowToClick.click();
+                        click_index_need = false;
 
-                    await page.waitForTimeout(1500);
-                    
-                    const name = (await (await page.$('.exec-firmo-compact__executive-name-text'))?.innerText()) || "";
-                    const title = (await (await page.$('.exec-firmo-compact__summary__executive__title'))?.innerText()) || "";
-                    const email = (await (await page.$('.exec-firmo-compact__people-email-value'))?.innerText()) || "";
-                    const phone = (await (await page.$('.exec-firmo-compact__people-phone'))?.innerText()) || "";
-                    const home = (await (await page.$('.expand.direct'))?.innerText()) || "";
-                    console.log(`Information: ${name}, ${title}, ${email}, ${phone}, ${home} Rown Number ${total_indexed}`);
+                    } catch (error) {
+                        console.log('cannpot click row index trying again :', index);
+                        await page.waitForTimeout(1500);
+
+                    }
+                }
+
+                await page.waitForTimeout(1500);
+
+                const name = (await (await page.$('.exec-firmo-compact__executive-name-text'))?.innerText()) || "";
+                const title = (await (await page.$('.exec-firmo-compact__summary__executive__title'))?.innerText()) || "";
+                const email = (await (await page.$('.exec-firmo-compact__people-email-value'))?.innerText()) || "";
+                const phone = (await (await page.$('.exec-firmo-compact__people-phone'))?.innerText()) || "";
+                const home = (await (await page.$('.expand.direct'))?.innerText()) || "";
+                console.log(`Information: ${name}, ${title}, ${email}, ${phone}, ${home} Rown Number ${total_indexed}`);
+
+                const uniqueKey = `${name}-${title}-${email}-${phone}-${home}`;
+                
+                if (!uniqueRecords.has(uniqueKey)) {
+                    uniqueRecords.add(uniqueKey);
                     data.push({
                         name, title, email, phone, home
                     });
+                    uniq_not_found = 0;
                     total_indexed++;
-                } catch (error) {
-                    console.log('error on index ' + index);
-                    console.log('error details  ' + error.message);
-                    console.log('total rows : ', total_rows);
-
-                    maxRetries--;
-                    if (maxRetries < 0) {
+                }
+                else{
+                    uniq_not_found++;
+                    if(uniq_not_found > 100){
+                        continue_search = false;
                         break;
                     }
                 }
+            } catch (error) {
+                console.log('error on index ' + index);
+                console.log('error details  ' + error.message);
+                console.log('total rows : ', total_rows);
+
+                maxRetries--;
+                if (maxRetries < 0) {
+                    break;
+                }
             }
-            try {
-            // await scrollInContainer(page);
+        }
+        try {
             // people-pane__container
-            await page.evaluate((total_rows) => {
-                // const fifthElement = document.querySelector('.gio-entry-list__item-wrapper:nth-child(5)');
-                const fifthElement = document.querySelector('.gio-entry-list__item-wrapper:nth-child('+total_rows+')');
-                fifthElement?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-            },total_rows);
+            if (total_rows > 5) {
+                await page.evaluate((total_rows) => {
+                    const fifthElement = document.querySelector('.gio-entry-list__item-wrapper:nth-child(5)');
+                    // const fifthElement = document.querySelector('.gio-entry-list__item-wrapper:nth-child('+total_rows+')');
+                    fifthElement?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                }, total_rows);
+            }
             await page.waitForTimeout(5000);
 
             await page.waitForTimeout(15000);
@@ -130,7 +157,7 @@ async function getDataFromPage(url, limit) {
             rows = await page.$$('.people-lists__list');
             total_rows = rows.length;
             console.log('part rows : ', total_rows);
-            console.log('//////////////////////all data',data);
+            console.log('//////////////////////all data', data);
             console.log('////////////////////// end all data');
             if (total_rows <= 0) {
                 console.log('exit due to total rows is ' + total_rows);
@@ -140,7 +167,7 @@ async function getDataFromPage(url, limit) {
             console.error(`Error in row ${total_indexed}: ${error.message}`);
             currentRetries++;
         }
-        
+
     }
 
     console.log(`Total unique indexed rows: ${data.length}`);
@@ -151,37 +178,6 @@ async function getDataFromPage(url, limit) {
     return data;
 }
 
-async function scrollInContainer(page) {
-    const containerSelector = '.ReactVirtualized__Grid__innerScrollContainer';
-
-    await page.evaluate(async (containerSelector) => {
-        const container = document.querySelector(containerSelector);
-
-        // If the container isn't found, exit the function
-        if (!container) {
-            console.error('Container not found:', containerSelector);
-            return;
-        }
-
-        let previousScrollHeight = 0;
-        let retries = 5; // Maximum retries for checking if scrolling has reached the end
-
-        // Keep scrolling until the scroll height stops changing, indicating the end
-        while (retries > 0) {
-            container.scrollBy(0, container.scrollHeight); // Scroll down in the container
-
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for content to load
-
-            // Check if scroll height has increased (indicating new content loaded)
-            if (container.scrollHeight > previousScrollHeight) {
-                previousScrollHeight = container.scrollHeight;
-                retries = 5; // Reset retries since content loaded
-            } else {
-                retries--; // Reduce retries as no more content seems to load
-            }
-        }
-    }, containerSelector);
-}
 app.get('/demand_base', async (req, res) => {
     try {
         let limit = parseInt(req.query.limit) || 5;

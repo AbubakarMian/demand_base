@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demand Base Scraper</title>
+    <!-- Bootstrap CSS via CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2>Demand Base Data Scraper</h2>
+        <form id="scraperForm" class="mt-4">
+            <div class="mb-3">
+                <label for="urlInput" class="form-label">Enter URL:</label>
+                <input type="text" id="urlInput" class="form-control" 
+                value="https://web.demandbase.com/sales/company/1026419/people"
+                placeholder="https://web.demandbase.com/sales/company/1026419/people" required>
+            </div>
+            <div class="mb-3">
+                <label for="limitInput" class="form-label">Limit:</label>
+                <input type="number" id="limitInput" class="form-control" value="5" min="1">
+            </div>
+            <button type="submit" class="btn btn-primary">Submit</button>
+        </form>
+        <div id="result" class="mt-4"></div>
+    </div>
+
+    <!-- Bootstrap JavaScript via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- JavaScript to handle form submission -->
+    <script>
+        document.getElementById("scraperForm").addEventListener("submit", async function(event) {
+            event.preventDefault();
+
+            const url = document.getElementById("urlInput").value;
+            const limit = document.getElementById("limitInput").value;
+            
+            try {
+                const response = await fetch(`http://localhost:5003/demand_base?url=${encodeURIComponent(url)}`, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json"
+                    }
+                });
+                
+                const data = await response.json();
+                document.getElementById("result").innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                document.getElementById("result").innerHTML = `<p class="text-danger">Error: ${error.message}</p>`;
+            }
+        });
+    </script>
+</body>
+</html>

@@ -52,14 +52,13 @@
 
         document.getElementById('startButton').addEventListener('click', () => {
             const url = document.getElementById("urlInput").value;
-            const limit = document.getElementById("limitInput").value;
             const tableBody = document.querySelector("#dataTable tbody");
 
             if (eventSource && !isStopped) return; // Prevent starting if already running
 
             isStopped = false;
             // tableBody.innerHTML = ''; 
-            eventSource = new EventSource(`http://localhost:5003/demand_base?url=${encodeURIComponent(url)}&limit=${limit}`);
+            eventSource = new EventSource(`http://localhost:5003/demand_base?url=${encodeURIComponent(url)}`);
 
             eventSource.onmessage = (event) => {
                 if (event.data === "[DONE]") {

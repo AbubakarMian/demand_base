@@ -201,6 +201,11 @@ app.get('/demand_base', async (req, res) => {
         res.setHeader('Connection', 'keep-alive');
         res.flushHeaders();
         console.time("Execution Time");
+        req.on('close', () => {
+            console.log('Client disconnected.');
+            isStopped = true;  // Set flag to stop scraping
+            browser.close();
+        });
 
         let limit = parseInt(req.query.limit) || 5;
         let url = req.query.url || '';
@@ -225,6 +230,7 @@ app.get('/stop_scraping', (req, res) => {
     browser.close();
     res.send({ message: "Scraping stopped" });
 });
+
 
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);

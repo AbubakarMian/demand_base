@@ -1,0 +1,4 @@
+PassengerAppRoot /home/nodehatinco/public_html/demand_base
+PassengerBaseURI /demand_base
+PassengerAppType node
+PassengerStartupFile demand_base.js

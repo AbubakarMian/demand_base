@@ -5,7 +5,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Demand Base Scraper</title>
-    <!-- Bootstrap CSS via CDN -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 
@@ -19,11 +18,10 @@
                     value="https://web.demandbase.com/sales/company/1026419/people"
                     placeholder="https://web.demandbase.com/sales/company/1026419/people" required>
             </div>
-            <div class="mb-3">
-                <!-- <label for="limitInput" class="form-label">Limit:</label>
-                <input type="number" id="limitInput" class="form-control" value="5" min="1"> -->
-            </div>
-            <button type="submit" class="btn btn-primary">Submit</button>
+           
+            <button type="button" id="startButton" class="btn btn-primary">Start Search</button>
+            <button type="button" id="stopButton" class="btn btn-danger">Stop Search</button>
+            <button id="downloadCsvButton" class="btn btn-info">Download CSV</button>
         </form>
         <div id="result" class="mt-4"></div>
     </div>
@@ -40,48 +38,102 @@
         <tbody></tbody>
     </table>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
     <script>
-        document.getElementById('scraperForm').addEventListener('submit', (event) => {
-            event.preventDefault();
+        let eventSource;
+        let isStopped = false;
+        let uniqueRecords = new Set();
+        let table_data = [];
 
+        window.addEventListener("beforeunload", () => {
+            if (eventSource) {
+                eventSource.close();
+            }
+        });
+
+        document.getElementById('startButton').addEventListener('click', () => {
             const url = document.getElementById("urlInput").value;
             const limit = document.getElementById("limitInput").value;
             const tableBody = document.querySelector("#dataTable tbody");
-            tableBody.innerHTML = '';  // Clear the table for new data
 
-            const eventSource = new EventSource(`http://localhost:5003/demand_base?url=${encodeURIComponent(url)}&limit=${limit}`);
+            if (eventSource && !isStopped) return; // Prevent starting if already running
+
+            isStopped = false;
+            // tableBody.innerHTML = ''; 
+            eventSource = new EventSource(`http://localhost:5003/demand_base?url=${encodeURIComponent(url)}&limit=${limit}`);
+
             eventSource.onmessage = (event) => {
-    if (event.data === "[DONE]") {
-        eventSource.close();
-        console.log("Stream closed by server.");
-        return;
-    }
+                if (event.data === "[DONE]") {
+                    eventSource.close();
+                    return;
+                }
 
-    try {
-        const rowData = JSON.parse(event.data);
-        console.log('Received data:', rowData);
+                const rowData = JSON.parse(event.data);
+                let uniqueKey = rowData.uniqueKey;
+                if (!uniqueRecords.has(uniqueKey)) {
+                    uniqueRecords.add(uniqueKey);
+                    table_data = {
+                        name: rowData.name, title: rowData.title,
+                        email: rowData.email, phone: rowData.phone, home: rowData.home
+                    };
+                    const newRow = document.createElement("tr");
+                    newRow.innerHTML = `
+                    <td>${rowData.name}</td>
+                    <td>${rowData.title}</td>
+                    <td>${rowData.email}</td>
+                    <td>${rowData.phone}</td>
+                    <td>${rowData.home}</td>`;
+                    tableBody.appendChild(newRow);
+                }
+            };
 
-        const newRow = document.createElement("tr");
-        newRow.innerHTML = `
-            <td>${rowData.name}</td>
-            <td>${rowData.title}</td>
-            <td>${rowData.email}</td>
-            <td>${rowData.phone}</td>
-            <td>${rowData.home}</td>`;
-        tableBody.appendChild(newRow);
-    } catch (error) {
-        console.error("Error parsing received data:", error);
-    }
-};
+            eventSource.onerror = (error) => {
+                console.error("Error receiving data:", error);
+                eventSource.close();
+            };
+        });
 
-eventSource.onerror = (error) => {
-    console.error("SSE Error:", error);
-    eventSource.close();
-};
+
+        document.getElementById('stopButton').addEventListener('click', async () => {
+            if (eventSource) {
+                isStopped = true;
+                eventSource.close();
+                eventSource = null;
+                await fetch('http://localhost:5003/stop_scraping', { method: 'GET' });
+                console.log("Scraping stopped by the user.");
+            }
+        });
+
+        document.getElementById('downloadCsvButton').addEventListener('click', (event) => {
+            event.preventDefault();
+            const table = document.querySelector("#dataTable");
+            const rows = table.querySelectorAll('tr');
+            const csvData = [];
+
+            // Loop through all rows and cells to extract data
+            rows.forEach((row, index) => {
+                const rowData = [];
+                const cells = row.querySelectorAll('td, th');
+
+                cells.forEach(cell => {
+                    rowData.push(cell.innerText.trim());
+                });
+
+                if (rowData.length > 0) {
+                    csvData.push(rowData.join(','));
+                }
+            });
+
+            // Create a CSV string
+            const csvString = csvData.join('\n');
+
+            // Create a Blob with the CSV data and trigger a download
+            const blob = new Blob([csvString], { type: 'text/csv' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'data.csv';
+            link.click();
         });
     </script>
-
 </body>
 
 </html>

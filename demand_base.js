@@ -4,11 +4,13 @@ const cors = require('cors');
 const app = express();
 const PORT = 5003;
 app.use(cors());
+let isStopped = false;
+let browser = null;
 
 async function getDataFromPage(url, limit, res) {
 
     console.log('url', url);
-    const browser = await chromium.launch({
+    browser = await chromium.launch({
         headless: false,
         args: [
             '--no-sandbox',
@@ -82,14 +84,14 @@ async function getDataFromPage(url, limit, res) {
     let continue_search = true;
     let uniq_not_found = 0;
     let iterated_data = 0;
-    while (total_indexed < totalNumber && continue_search) {//&&iterated_data<totalNumber
+    while (total_indexed < totalNumber && continue_search && !isStopped) {//&&iterated_data<totalNumber
         iterated_data++;
         rows = await page.$$('.people-lists__list');
         await page.waitForTimeout(3000);
         total_rows = rows.length;
         console.log('part rows : ', total_rows);
 
-        for (let index = 0; index < total_rows; index++) {
+        for (let index = 0; index < total_rows && !isStopped; index++) {
 
             try {
                 let click_index_need = true;
@@ -126,26 +128,29 @@ async function getDataFromPage(url, limit, res) {
 
                         const uniqueKey = `${name}-${title}-${email}-${phone}-${home}`;
 
-                        if (!uniqueRecords.has(uniqueKey)) {
-                            uniqueRecords.add(uniqueKey);
-                            data.push({
-                                name, title, email, phone, home
-                            });
-                            uniq_not_found = 0;
-                            total_indexed++;
-                            const rowData = { name, title, email, phone, home };
-                            res.write(`data: ${JSON.stringify(rowData)}\n\n`);
+                        const rowData = { name, title, email, phone, home,uniqueKey };
+                        res.write(`data: ${JSON.stringify(rowData)}\n\n`);
 
-                        }
-                        else {
-                            uniq_not_found++;
-                            console.log('uniq_not_found try :  ', uniq_not_found);
-                            if (uniq_not_found > 500) {
-                                console.log('uniq_not_found end ', uniq_not_found);
-                                continue_search = false;
-                                break;
-                            }
-                        }
+                        // if (!uniqueRecords.has(uniqueKey)) {
+                        //     uniqueRecords.add(uniqueKey);
+                        //     data.push({
+                        //         name, title, email, phone, home
+                        //     });
+                        //     uniq_not_found = 0;
+                        //     total_indexed++;
+                        //     const rowData = { name, title, email, phone, home,uniqueKey };
+                        //     res.write(`data: ${JSON.stringify(rowData)}\n\n`);
+
+                        // }
+                        // else {
+                        //     uniq_not_found++;
+                        //     console.log('uniq_not_found try :  ', uniq_not_found);
+                        //     if (uniq_not_found > 500) {
+                        //         console.log('uniq_not_found end ', uniq_not_found);
+                        //         continue_search = false;
+                        //         break;
+                        //     }
+                        // }
 
                     } catch (error) {
                         console.log('cannpot click row index trying again :', index);
@@ -186,7 +191,7 @@ async function getDataFromPage(url, limit, res) {
 
     console.log(`Total indexed rows: ${total_indexed}`);
 
-    // await browser.close();
+    await browser.close();
     return data;
 }
 app.get('/demand_base', async (req, res) => {
@@ -199,6 +204,7 @@ app.get('/demand_base', async (req, res) => {
 
         let limit = parseInt(req.query.limit) || 5;
         let url = req.query.url || '';
+        isStopped = false;
         const data = await getDataFromPage(url, limit, res);
 
         console.log(`Received request with limit: ${limit}`);
@@ -212,6 +218,12 @@ app.get('/demand_base', async (req, res) => {
         res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
         res.end();
     }
+});
+
+app.get('/stop_scraping', (req, res) => {
+    isStopped = true;  // Set flag to stop scraping
+    browser.close();
+    res.send({ message: "Scraping stopped" });
 });
 
 app.listen(PORT, () => {

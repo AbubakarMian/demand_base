@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "",
   "main": "demand_base.js",
-   "start": "node demand_base.js",
   "scripts": {
+    "start": "node demand_base.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

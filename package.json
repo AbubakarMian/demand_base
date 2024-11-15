@@ -1,8 +1,9 @@
 {
-  "name": "top_projects",
+  "name": "demand_base",
   "version": "1.0.0",
   "description": "",
-  "main": "top_projects.js",
+  "main": "demand_base.js",
+   "start": "node demand_base.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

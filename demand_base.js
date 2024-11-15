@@ -7,7 +7,7 @@ app.use(cors());
 
 async function getDataFromPage(url, limit, res) {
 
-    console.log('url',url);
+    console.log('url', url);
     const browser = await chromium.launch({
         headless: false,
         args: [
@@ -82,7 +82,7 @@ async function getDataFromPage(url, limit, res) {
     let continue_search = true;
     let uniq_not_found = 0;
     let iterated_data = 0;
-    while (total_indexed < totalNumber&& continue_search) {//&&iterated_data<totalNumber
+    while (total_indexed < totalNumber && continue_search) {//&&iterated_data<totalNumber
         iterated_data++;
         rows = await page.$$('.people-lists__list');
         await page.waitForTimeout(3000);
@@ -90,7 +90,7 @@ async function getDataFromPage(url, limit, res) {
         console.log('part rows : ', total_rows);
 
         for (let index = 0; index < total_rows; index++) {
-            
+
             try {
                 let click_index_need = true;
                 for (let click_index = 0; click_index < 3 && click_index_need; click_index++) {
@@ -111,7 +111,7 @@ async function getDataFromPage(url, limit, res) {
                 for (let loaddata__index = 0; loaddata__index < 7 && loaddata; loaddata__index++) {
                     try {
                         const name = (await (await page.$('.exec-firmo-compact__executive-name-text'))?.innerText()) || "";
-                        if(name==""){
+                        if (name == "") {
                             await page.waitForTimeout(300);
                             continue;
                         }
@@ -123,9 +123,9 @@ async function getDataFromPage(url, limit, res) {
                         const home = (await (await page.$('.expand.direct'))?.innerText()) || "";
                         console.log(`Information: ${name}, ${title}, ${email}, ${phone}, ${home} Rown Number ${total_indexed}`);
                         console.log('iterated_data :', iterated_data);
-        
+
                         const uniqueKey = `${name}-${title}-${email}-${phone}-${home}`;
-                        
+
                         if (!uniqueRecords.has(uniqueKey)) {
                             uniqueRecords.add(uniqueKey);
                             data.push({
@@ -135,13 +135,13 @@ async function getDataFromPage(url, limit, res) {
                             total_indexed++;
                             const rowData = { name, title, email, phone, home };
                             res.write(`data: ${JSON.stringify(rowData)}\n\n`);
-                
+
                         }
-                        else{
+                        else {
                             uniq_not_found++;
-                            console.log('uniq_not_found try :  ',uniq_not_found);
-                            if(uniq_not_found > 500){
-                                console.log('uniq_not_found end ',uniq_not_found);
+                            console.log('uniq_not_found try :  ', uniq_not_found);
+                            if (uniq_not_found > 500) {
+                                console.log('uniq_not_found end ', uniq_not_found);
                                 continue_search = false;
                                 break;
                             }
@@ -164,12 +164,12 @@ async function getDataFromPage(url, limit, res) {
             }
         }
         try {
-            
+
             await page.evaluate(() => {
-                const fifthElement = document.querySelector('.gio-entry-list__item-wrapper:last-child'); 
+                const fifthElement = document.querySelector('.gio-entry-list__item-wrapper:last-child');
                 fifthElement?.scrollIntoView({ behavior: 'smooth', block: 'end' });
             });
-           
+
             if (total_rows <= 0) {
                 console.log('exit due to total rows is ' + total_rows);
                 break;
@@ -180,8 +180,8 @@ async function getDataFromPage(url, limit, res) {
         }
 
     }
-    console.log(total_indexed , totalNumber, continue_search,iterated_data,totalNumber);
-    console.log(total_indexed < totalNumber,continue_search,iterated_data<totalNumber);
+    console.log(total_indexed, totalNumber, continue_search, iterated_data, totalNumber);
+    console.log(total_indexed < totalNumber, continue_search, iterated_data < totalNumber);
     console.log(`Total unique indexed rows: ${data.length}`);
 
     console.log(`Total indexed rows: ${total_indexed}`);

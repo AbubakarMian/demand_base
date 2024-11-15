@@ -5,7 +5,7 @@ const app = express();
 const PORT = 5003;
 app.use(cors());
 
-async function getDataFromPage(url, limit) {
+async function getDataFromPage(url, limit, res) {
 
     console.log('url',url);
     const browser = await chromium.launch({
@@ -45,8 +45,6 @@ async function getDataFromPage(url, limit) {
     let submitDemandbaseOne = 'xpath=//html/body/div[2]/div[1]/div[2]/div[2]/a[1]';
     await page.waitForSelector(submitDemandbaseOne, { timeout: 5000 });
     await page.click(submitDemandbaseOne);
-
-    // page.click(submitDemandbaseOne)
     await page.waitForTimeout(10000);
     await page.goto(url); //1026419,727617
 
@@ -94,9 +92,6 @@ async function getDataFromPage(url, limit) {
         for (let index = 0; index < total_rows; index++) {
             
             try {
-                // const nameElement = await rows[index].$('.people-lists__list__contacts__details__name');
-                // let check_name = await nameElement.innerText();
-                // console.log('check_name:', check_name);
                 let click_index_need = true;
                 for (let click_index = 0; click_index < 3 && click_index_need; click_index++) {
                     try {
@@ -115,9 +110,7 @@ async function getDataFromPage(url, limit) {
                 let loaddata = true;
                 for (let loaddata__index = 0; loaddata__index < 7 && loaddata; loaddata__index++) {
                     try {
-
                         const name = (await (await page.$('.exec-firmo-compact__executive-name-text'))?.innerText()) || "";
-                        
                         if(name==""){
                             await page.waitForTimeout(300);
                             continue;
@@ -140,6 +133,9 @@ async function getDataFromPage(url, limit) {
                             });
                             uniq_not_found = 0;
                             total_indexed++;
+                            const rowData = { name, title, email, phone, home };
+                            res.write(`data: ${JSON.stringify(rowData)}\n\n`);
+                
                         }
                         else{
                             uniq_not_found++;
@@ -193,21 +189,28 @@ async function getDataFromPage(url, limit) {
     // await browser.close();
     return data;
 }
-
 app.get('/demand_base', async (req, res) => {
     try {
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.flushHeaders();
         console.time("Execution Time");
+
         let limit = parseInt(req.query.limit) || 5;
         let url = req.query.url || '';
-        // const url = `https://authentication.demandbase.com/signin`;
-        const data = await getDataFromPage(url, limit);
-        console.log(`Received request for : with limit: ${limit}`);
+        const data = await getDataFromPage(url, limit, res);
 
+        console.log(`Received request with limit: ${limit}`);
+
+        // Signal completion of data stream
+        res.write(`data: [DONE]\n\n`);
         console.timeEnd("Execution Time");
-        return res.json(data);
+        res.end();
     } catch (error) {
-        console.error(`Error in /scrap route: ${error.message}`);
-        return res.status(500).json({ error: error.message });
+        console.error(`Error in /demand_base route: ${error.message}`);
+        res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+        res.end();
     }
 });
 

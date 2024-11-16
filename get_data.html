@@ -33,10 +33,13 @@
                     value="https://web.demandbase.com/sales/company/1026419/people"
                     placeholder="https://web.demandbase.com/sales/company/1026419/people" required>
             </div>
+            <div class="btn_area">
 
-            <button type="button" id="startButton" class="btn btn-primary">Start Search</button>
-            <button type="button" id="stopButton" style="display: none;" class="btn btn-danger">Stop Search</button>
-            <button id="downloadCsvButton" style="display: none;" class="btn btn-info">Download CSV</button>
+                <button type="button" id="startButton" class="btn btn-primary">Start Search</button>
+                <button type="button" id="stopButton" style="display: none;" class="btn btn-danger">Stop Search</button>
+                <button id="downloadCsvButton" style="display: none;" class="btn btn-info">Download CSV</button>
+            </div>
+
         </form>
 
         <div id="result" class="mt-4"></div>
@@ -54,13 +57,14 @@
         </thead>
         <tbody></tbody>
     </table>
-    <div class="modal fade" id="loadingModal" data-bs-backdrop="static" tabindex="-1" aria-labelledby="loadingModalLabel" aria-hidden="true">
+    <div class="modal fade" id="loadingModal" data-bs-backdrop="static" tabindex="-1"
+        aria-labelledby="loadingModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="loadingModalLabel">Loading In Progress</h5>
-                    <button type="button" style="display: none;" id="closeLoadingbtn" class="btn-close" data-bs-dismiss="modal"
-                        aria-label="Close"></button>
+                    <button type="button" style="display: none;" id="closeLoadingbtn" class="btn-close"
+                        data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <div id="loadingMessage">Loading...</div>

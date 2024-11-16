@@ -65,7 +65,14 @@ table td {
 #toastContainer .toast {
     animation: slideIn 0.5s ease-out;
 }
-
+.btn_area {
+    display: flex;
+    justify-content: space-between;
+}
+.btn_area button {
+    color: white;
+    font-weight: 900;
+}
 @keyframes slideIn {
     from {
         transform: translateX(-100%);

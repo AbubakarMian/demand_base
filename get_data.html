@@ -58,7 +58,8 @@
 
             isStopped = false;
             // tableBody.innerHTML = ''; 
-            eventSource = new EventSource(`https://node.hatinco.com/demand_base?url=${encodeURIComponent(url)}`);
+            // eventSource = new EventSource(`https://node.hatinco.com/demand_base?url=${encodeURIComponent(url)}`);
+            eventSource = new EventSource(`http://localhost:5003/demand_base?url=${encodeURIComponent(url)}`);
 
             eventSource.onmessage = (event) => {
                 if (event.data === "[DONE]") {

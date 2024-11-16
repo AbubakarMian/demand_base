@@ -2,6 +2,5 @@ PassengerAppRoot /home/nodehatinco/public_html/demand_base
 PassengerBaseURI /demand_base
 PassengerAppType node
 PassengerStartupFile demand_base.js
-PassengerNodejs /home/nodehatinco/nodevenv/public_html/demand_base/16/bin/node
 PassengerFriendlyErrorPages on
 PassengerAppEnv development

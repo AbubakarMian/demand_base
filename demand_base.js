@@ -11,7 +11,7 @@ async function getDataFromPage(url, limit, res) {
 
     console.log('url', url);
     browser = await chromium.launch({
-        headless: false,
+        headless: true,
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -231,7 +231,10 @@ app.get('/stop_scraping', (req, res) => {
     res.send({ message: "Scraping stopped" });
 });
 
-
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
+
+// app.listen(PORT, () => {
+//     console.log(`Server is running on http://localhost:${PORT}`);
+// });

@@ -5,7 +5,8 @@
   "main": "demand_base.js",
   "scripts": {
     "start": "node demand_base.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start-debug": "DEBUG=pw:browser* node demand_base.js"
   },
   "keywords": [],
   "author": "",

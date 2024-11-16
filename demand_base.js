@@ -11,7 +11,8 @@ async function getDataFromPage(url, limit, res) {
 
     console.log('url', url);
     browser = await chromium.launch({
-        headless: true,
+        // headless: true,
+        headless: 'new', 
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',

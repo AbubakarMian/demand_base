@@ -11,8 +11,8 @@ async function getDataFromPage(url, limit, res) {
 
     console.log('url', url);
     browser = await chromium.launch({
-        // headless: true,
-        headless: 'new', 
+        headless: true,
+        // headless: 'new', 
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -45,6 +45,8 @@ async function getDataFromPage(url, limit, res) {
         page.click(submitSelector),
         page.waitForNavigation({ waitUntil: 'networkidle' })
     ]);
+    res.write(`data: [loadingURL]\n\n`);
+
     let submitDemandbaseOne = 'xpath=//html/body/div[2]/div[1]/div[2]/div[2]/a[1]';
     await page.waitForSelector(submitDemandbaseOne, { timeout: 5000 });
     await page.click(submitDemandbaseOne);
@@ -132,27 +134,6 @@ async function getDataFromPage(url, limit, res) {
                         const rowData = { name, title, email, phone, home,uniqueKey };
                         res.write(`data: ${JSON.stringify(rowData)}\n\n`);
 
-                        // if (!uniqueRecords.has(uniqueKey)) {
-                        //     uniqueRecords.add(uniqueKey);
-                        //     data.push({
-                        //         name, title, email, phone, home
-                        //     });
-                        //     uniq_not_found = 0;
-                        //     total_indexed++;
-                        //     const rowData = { name, title, email, phone, home,uniqueKey };
-                        //     res.write(`data: ${JSON.stringify(rowData)}\n\n`);
-
-                        // }
-                        // else {
-                        //     uniq_not_found++;
-                        //     console.log('uniq_not_found try :  ', uniq_not_found);
-                        //     if (uniq_not_found > 500) {
-                        //         console.log('uniq_not_found end ', uniq_not_found);
-                        //         continue_search = false;
-                        //         break;
-                        //     }
-                        // }
-
                     } catch (error) {
                         console.log('cannpot click row index trying again :', index);
                         await page.waitForTimeout(1500);
@@ -211,6 +192,8 @@ app.get('/demand_base', async (req, res) => {
         let limit = parseInt(req.query.limit) || 5;
         let url = req.query.url || '';
         isStopped = false;
+        res.write(`data: [loggingIn]\n\n`);
+
         const data = await getDataFromPage(url, limit, res);
 
         console.log(`Received request with limit: ${limit}`);
@@ -233,7 +216,7 @@ app.get('/stop_scraping', (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+    console.log(`Server is working / running on http://localhost:${PORT}`);
 });
 
 // app.listen(PORT, () => {

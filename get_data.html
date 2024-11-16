@@ -11,17 +11,29 @@
 <body>
     <div class="container mt-5">
         <h2>Demand Base Data Scraper</h2>
+        <div id="toastContainer" class="position-fixed top-0 start-0 p-3" style="z-index: 1055; width: 300px;">
+            <div id="infoToast" class="toast align-items-center text-bg-success border-0 shadow" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex">
+                    <div class="toast-body" id="toastContent">
+                        <!-- Toast content will be updated dynamically -->
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            </div>
+        </div>
+        </div>
         <form id="scraperForm" class="mt-4">
+            <div id="loadingStatus"></div>
             <div class="mb-3">
                 <label for="urlInput" class="form-label">Enter URL:</label>
                 <input type="text" id="urlInput" class="form-control"
                     value="https://web.demandbase.com/sales/company/1026419/people"
                     placeholder="https://web.demandbase.com/sales/company/1026419/people" required>
             </div>
-           
+
             <button type="button" id="startButton" class="btn btn-primary">Start Search</button>
-            <button type="button" id="stopButton" class="btn btn-danger">Stop Search</button>
-            <button id="downloadCsvButton" class="btn btn-info">Download CSV</button>
+            <button type="button" id="stopButton" style="display: none;" class="btn btn-danger">Stop Search</button>
+            <button id="downloadCsvButton" style="display: none;" class="btn btn-info">Download CSV</button>
         </form>
         <div id="result" class="mt-4"></div>
     </div>
@@ -38,11 +50,14 @@
         <tbody></tbody>
     </table>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
         let eventSource;
         let isStopped = false;
         let uniqueRecords = new Set();
         let table_data = [];
+
+
 
         window.addEventListener("beforeunload", () => {
             if (eventSource) {
@@ -52,6 +67,15 @@
 
         document.getElementById('startButton').addEventListener('click', () => {
             const url = document.getElementById("urlInput").value;
+
+            if (url == '') {
+                return;
+            }
+
+            $("#startButton").css('display', 'none');
+            $("#stopButton").css('display', 'block');
+            $("#downloadCsvButton").css('display', 'none');
+
             const tableBody = document.querySelector("#dataTable tbody");
 
             if (eventSource && !isStopped) return; // Prevent starting if already running
@@ -60,12 +84,20 @@
             // tableBody.innerHTML = ''; 
             // eventSource = new EventSource(`https://node.hatinco.com/demand_base?url=${encodeURIComponent(url)}`);
             eventSource = new EventSource(`http://localhost:5003/demand_base?url=${encodeURIComponent(url)}`);
-
             eventSource.onmessage = (event) => {
+                if (event.data === "[loggingIn]") {
+                    $('#loadingStatus').html('Loading loggin In ...');
+                    return;
+                }
+                if (event.data === "[loadingURL]") {
+                    $('#loadingStatus').html('Loading URL ...');
+                    return;
+                }
                 if (event.data === "[DONE]") {
                     eventSource.close();
                     return;
                 }
+                $('#loadingStatus').html('');
 
                 const rowData = JSON.parse(event.data);
                 let uniqueKey = rowData.uniqueKey;
@@ -83,6 +115,11 @@
                     <td>${rowData.phone}</td>
                     <td>${rowData.home}</td>`;
                     tableBody.appendChild(newRow);
+                    const toastContent = `Added: Name: ${rowData.name}, Title: ${rowData.title}, Email: ${rowData.email}`;
+                    document.getElementById('toastContent').innerText = toastContent;
+
+                    const infoToast = new bootstrap.Toast(document.getElementById('infoToast'));
+                    infoToast.show();
                 }
             };
 
@@ -94,6 +131,10 @@
 
 
         document.getElementById('stopButton').addEventListener('click', async () => {
+            $("#startButton").css('display', 'block');
+            $("#stopButton").css('display', 'none');
+            $("#downloadCsvButton").css('display', 'block');
+
             if (eventSource) {
                 isStopped = true;
                 eventSource.close();
@@ -104,6 +145,7 @@
         });
 
         document.getElementById('downloadCsvButton').addEventListener('click', (event) => {
+            $("#stopButton").click();
             event.preventDefault();
             const table = document.querySelector("#dataTable");
             const rows = table.querySelectorAll('tr');

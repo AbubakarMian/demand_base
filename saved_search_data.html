@@ -31,7 +31,8 @@
                 <label for="urlInput" class="form-label">Enter URL:</label>
                 <input type="text" id="urlInput" class="form-control"
                     value="https://web.demandbase.com/sales/saved?flow=saved-search&searchId=475215&searchName=China%201#results"
-                    placeholder="https://web.demandbase.com/sales/saved?flow=saved-search&searchId=475215&searchName=China%201#results" required>
+                    placeholder="https://web.demandbase.com/sales/saved?flow=saved-search&searchId=475215&searchName=China%201#results"
+                    required>
             </div>
             <div class="btn_area">
 
@@ -187,7 +188,19 @@
                 const cells = row.querySelectorAll('td, th');
 
                 cells.forEach(cell => {
-                    rowData.push(cell.innerText.trim());
+                    let cellText = cell.innerText.trim();
+
+                    // Escape double quotes by doubling them
+                    if (cellText.includes('"')) {
+                        cellText = cellText.replace(/"/g, '""');
+                    }
+
+                    // Enclose the cell value in double quotes if it contains a comma, a quote, or a newline
+                    if (cellText.includes(',') || cellText.includes('"') || cellText.includes('\n')) {
+                        cellText = `"${cellText}"`;
+                    }
+
+                    rowData.push(cellText);
                 });
 
                 if (rowData.length > 0) {

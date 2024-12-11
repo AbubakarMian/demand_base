@@ -9,7 +9,8 @@ let browser = null;
 
 async function getDataFromPage(url, limit, res) {
 
-    url = new URL('https://web.demandbase.com/sales/saved?flow=saved-search&searchId=475215&searchName=China%201#results');
+    url = new URL(url);
+    // url = new URL('https://web.demandbase.com/sales/saved?flow=saved-search&searchId=475215&searchName=China%201#results');
     let flow = url.searchParams.get('flow');
     let searchId = url.searchParams.get('searchId');
     let searchName = url.searchParams.get('searchName');

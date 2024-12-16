@@ -1,0 +1,6 @@
+@echo off
+echo Opening Browser...
+start https://node.hatinco.com/demand_base/saved_search_data.html
+echo Running Node.js Script...
+node .\demand_base_saved_searches.js
+

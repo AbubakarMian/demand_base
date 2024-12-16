@@ -16,7 +16,7 @@ async function getDataFromPage(url, limit, res) {
     let searchName = url.searchParams.get('searchName');
 
     browser = await chromium.launch({
-        headless: false,
+        headless: true,
         // headless: 'new', 
         args: [
             '--no-sandbox',

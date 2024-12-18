@@ -74,13 +74,13 @@ async function getDataFromPage(url, limit, res) {
             try {
                 const button = await page.$('.js-people-count');
                 if (button) {
-                    console.log('Element found in iframe');
+                    // console.log('Element found in iframe');
 
                     await button.click();
                     finding_found = false;
                     break;
                 } else {
-                    console.log('Element not found in iframe');
+                    // console.log('Element not found in iframe');
                     await page.waitForTimeout(1300);
                 }
             } catch (frameError) {
@@ -95,7 +95,7 @@ async function getDataFromPage(url, limit, res) {
         console.error(`Error while waiting for iframe or executing loop: ${error.message}`);
     }
 
-    console.log('after btn');
+    // console.log('after btn');
 
     let retries = 100;
     let contentTable;
@@ -105,7 +105,7 @@ async function getDataFromPage(url, limit, res) {
         try {
             contentTable = await page.waitForSelector('#DataTables_Table_1_wrapper', { timeout: 5000 });
             if (contentTable) {
-                console.log('DataTables_Table_1_wrapper Table found!');
+                // console.log('DataTables_Table_1_wrapper Table found!');
                 break;
             }
             else {
@@ -123,7 +123,7 @@ async function getDataFromPage(url, limit, res) {
     while (true) {
         // Fetch rows dynamically in each iteration to handle DOM changes
         let rows = await page.$$('#DataTables_Table_1_wrapper table tr', { timeout: 10000 });
-        console.log('Total rows: ' + rows.length);
+        // console.log('Total rows: ' + rows.length);
         if (rowIndex >= rows.length) {
             let isNextDisabled = await page.evaluate(() => {
                 let nextButton = document.querySelector('#DataTables_Table_1_next');
@@ -131,7 +131,7 @@ async function getDataFromPage(url, limit, res) {
             });
             if (isNextDisabled) {
                 console.log('No more pages to process. Exiting...');
-                console.log('All rows processed.');
+                // console.log('All rows processed.');
                 break;
             }
             else{
@@ -147,7 +147,7 @@ async function getDataFromPage(url, limit, res) {
 
         let row = rows[rowIndex];
         if (!row) {
-            console.log(`Row ${rowIndex + 1} not found. Retrying...`);
+            // console.log(`Row ${rowIndex + 1} not found. Retrying...`);
             await page.waitForTimeout(500);
             continue;
         }
@@ -157,7 +157,7 @@ async function getDataFromPage(url, limit, res) {
 
             await row.click();
 
-            console.log(`Clicked row ${rowIndex + 1}`);
+            // console.log(`Clicked row ${rowIndex + 1}`);
             await page.waitForTimeout(1000);
 
 
@@ -168,7 +168,7 @@ async function getDataFromPage(url, limit, res) {
             const address = (await (await page.$('.theme-executive-value.theme-address-value'))?.innerText()) || "";
 
             const uniqueKey = `${name}-${email}-${phone}-${address}`;
-            console.log("Info", uniqueKey);
+            // console.log("Info", uniqueKey);
 
             const rowData = { name,email, phone, address, uniqueKey };
             res.write(`data: ${JSON.stringify(rowData)}\n\n`);
@@ -184,14 +184,14 @@ async function getDataFromPage(url, limit, res) {
             });
 
             // await row.click();
-            console.log(`Clicked row ${rowIndex + 1} again`);
+            // console.log(`Clicked row ${rowIndex + 1} again`);
         } catch (rowError) {
             console.error(`Error clicking row ${rowIndex + 1}: ${rowError.message}`);
         }
         rowIndex++;
     }
 
-    console.log('All rows processed.');
+    // console.log('All rows processed.');
     return;
 
 
@@ -218,7 +218,7 @@ app.get('/demand_base', async (req, res) => {
 
         const data = await getDataFromPage(url, limit, res);
 
-        console.log(`Received request with limit: ${limit}`);
+        // console.log(`Received request with limit: ${limit}`);
 
         // Signal completion of data stream
         res.write(`data: [DONE]\n\n`);

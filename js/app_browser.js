@@ -43,6 +43,12 @@ document.getElementById('startButton').addEventListener('click', () => {
             $('#stopButton').click();
             return;
         }
+        if (event.data === "[ERROR]") {
+            $('.server_error').css('display','block');
+            eventSource.close();
+            $('#stopButton').click();
+            return;
+        }
         // $('#loadingStatus').html('');
 
         $('#closeLoadingbtn').click();

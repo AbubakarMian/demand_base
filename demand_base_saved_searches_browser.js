@@ -48,118 +48,89 @@ async function getDataFromPage(url, limit, res) {
     res.write(`data: [startScraping]\n\n`);
     let finding_found = true;
 
-    let iframe; // Define iframe in the broader scope
-    try {
-        const iframeHandle = await page.waitForSelector('iframe', { timeout: 15000 });
-        iframe = await iframeHandle.contentFrame(); // Assign iframe here
-        if (!iframe) {
-            console.error("Error: Unable to access iframe content.");
-            res.write(`data: [iframeNotFound]\n\n`);
-            return;
-        }
-        for (let index = 0; index < 100 && finding_found; index++) {
-            try {
-                const button = await iframe.$('.js-people-count');
-                if (button) {
-                    await button.click();
-                    finding_found = false;
-                    break;
-                } else {
-                    await page.waitForTimeout(1300);
-                }
-            } catch (frameError) {
-                console.error(`Error accessing frame: ${frameError.message}`);
-            }
-        }
-    } catch (error) {
-        console.error(`Error while waiting for iframe or executing loop: ${error.message}`);
-        res.write(`data: [errorWaitingForIframe]\n\n`);
+    let iframe;
+    const iframeHandle = await page.waitForSelector('iframe', { timeout: 15000 });
+    iframe = await iframeHandle.contentFrame(); // Assign iframe here
+    if (!iframe) {
+        console.error("Error: Unable to access iframe content.");
+        res.write(`data: [iframeNotFound]\n\n`);
         return;
     }
+    for (let index = 0; index < 100 && finding_found; index++) {
+        const button = await iframe.$('.js-people-count');
+        if (button) {
+            await button.click();
+            finding_found = false;
+            break;
+        } else {
+            await page.waitForTimeout(1300);
+        }
+    }
+
 
     let retries = 100;
     let contentTable = null;
     const tbl_name_expected = ['DataTables_Table_1', 'DataTables_Table_1_wrapper'];
     let tbl_name = '';
-
-    try {
-        for (let attempt = 0; attempt < retries; attempt++) {
-            tbl_name = tbl_name_expected[attempt % tbl_name_expected.length];
-            try {
-                contentTable = await iframe.$(`#${tbl_name} table tr`);
-                const iframrows = await iframe.$$(`#${tbl_name} table tr`);
-                if (contentTable&&iframrows.length>2) {
-                    break;
-                }
-                await page.waitForTimeout(1300);
-            } catch (tableError) {
-                console.error(`Table not found: ${tableError.message}`);
-            }
+    for (let attempt = 0; attempt < retries; attempt++) {
+        tbl_name = tbl_name_expected[attempt % tbl_name_expected.length];
+        contentTable = await iframe.$(`#${tbl_name} table tr`);
+        const iframrows = await iframe.$$(`#${tbl_name} table tr`);
+        if (contentTable && iframrows.length > 2) {
+            break;
         }
-    } catch (error) {
-        console.error(`Failed to locate content table: ${error.message}`);
-        res.write(`data: [contentTableNotFound]\n\n`);
-        return;
+        await page.waitForTimeout(1300);
     }
-
     if (!contentTable) {
         console.warn("No table found after retries. Continuing...");
     }
-
     let start_index = 2;
     let rowIndex = start_index;
     while (true) {
-        try {
-            const rows = await iframe.$$(`#${tbl_name} table tr`);
-            if (rowIndex >= rows.length) {
-                const isNextDisabled = await iframe.evaluate(() => {
-                    const nextButton = document.querySelector('#DataTables_Table_1_next');
-                    if (nextButton) {
-                        return nextButton?.classList.contains('disabled');
-                    } else {
-                        console.error("Next button is not found or interactable.");
-                        return true;
-                    }
-                });
-                if (isNextDisabled) {
-                    console.log("No more pages to process. Exiting...");
-                    break;
+        const rows = await iframe.$$(`#${tbl_name} table tr`);
+        if (rowIndex >= rows.length) {
+            const isNextDisabled = await iframe.evaluate(() => {
+                const nextButton = document.querySelector('#DataTables_Table_1_next');
+                if (nextButton) {
+                    return nextButton?.classList.contains('disabled');
+                } else {
+                    console.error("Next button is not found or interactable.");
+                    return true;
                 }
-                await iframe.evaluate(() => {
-                    document.querySelector('#DataTables_Table_1_next').click();
-                });
-                rowIndex = start_index;
-                await page.waitForTimeout(5000);
-                continue;
-            }
-
-            const row = rows[rowIndex];
-            if (!row) {
-                await page.waitForTimeout(500);
-                continue;
-            }
-
-            await page.waitForTimeout(300);
-            await row.click();
-            await page.waitForTimeout(1000);
-
-            let name = await get_val(iframe,'.js-executive-name-text',10);
-            let email = await get_val(iframe,'.theme-people-email-value a',10);
-            let phone = await get_val(iframe,'.js-corporate-people-phone',5);
-            let address = await get_val(iframe,'.theme-executive-value.theme-address-value',10);
-            let uniqueKey = `${name}-${email}-${phone}-${address}`;
-            let rowData = { name, email, phone, address, uniqueKey };
-            res.write(`data: ${JSON.stringify(rowData)}\n\n`);
-
-            await iframe.evaluate(() => {
-                const checkedCheckboxes = document.querySelectorAll('#DataTables_Table_1_wrapper .select-record.select-empid:checked');
-                checkedCheckboxes.forEach(checkbox => checkbox.click());
             });
-            rowIndex++;
-        } catch (rowError) {
-            console.error(`Error processing row ${rowIndex}: ${rowError.message}`);
-            break;
+            if (isNextDisabled) {
+                console.log("No more pages to process. Exiting...");
+                break;
+            }
+            await iframe.evaluate(() => {
+                document.querySelector('#DataTables_Table_1_next').click();
+            });
+            rowIndex = start_index;
+            await page.waitForTimeout(5000);
+            continue;
         }
+
+        const row = rows[rowIndex];
+        if (!row) {
+            await page.waitForTimeout(500);
+            continue;
+        }
+        await page.waitForTimeout(300);
+        await row.click();
+        await page.waitForTimeout(1000);
+        let name = await get_val(iframe, '.js-executive-name-text', 10);
+        let email = await get_val(iframe, '.theme-people-email-value a', 10);
+        let phone = await get_val(iframe, '.js-corporate-people-phone', 5);
+        let address = await get_val(iframe, '.theme-executive-value.theme-address-value', 10);
+        let uniqueKey = `${name}-${email}-${phone}-${address}`;
+        let rowData = { name, email, phone, address, uniqueKey };
+        res.write(`data: ${JSON.stringify(rowData)}\n\n`);
+
+        await iframe.evaluate(() => {
+            const checkedCheckboxes = document.querySelectorAll('#DataTables_Table_1_wrapper .select-record.select-empid:checked');
+            checkedCheckboxes.forEach(checkbox => checkbox.click());
+        });
+        rowIndex++;
     }
 
     console.log("All rows processed.");
@@ -167,11 +138,11 @@ async function getDataFromPage(url, limit, res) {
     return;
 }
 
-async function  get_val(iframe,selector,tryies){
+async function get_val(iframe, selector, tryies) {
     let text = await iframe.$eval(selector, el => el.innerText).catch(() => "");
-    for(let i =0 ;i<tryies&&text=="";i++){
+    for (let i = 0; i < tryies && text == ""; i++) {
         text = await iframe.$eval(selector, el => el.innerText).catch(() => "");
-         await page.waitForTimeout(300);
+        await page.waitForTimeout(300);
     }
     return text;
 }
@@ -187,11 +158,13 @@ app.get('/loadurl', async (req, res) => {
         res.write(`data: [Loading]\n\n`);
 
         await loadUrl();
+        
         res.write(`data: [loadurlSuccess]\n\n`);
         res.end();
     } catch (error) {
         console.error(`Error in /demand_base route: ${error.message}`);
-        res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+        // res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+        res.write(`data: [ERROR]\n\n`);
         res.end();
     }
 });
@@ -220,7 +193,7 @@ app.get('/demand_base', async (req, res) => {
         res.end();
     } catch (error) {
         console.error(`Error in /demand_base route: ${error.message}`);
-        res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+        res.write(`data: [ERROR]\n\n`);
         res.end();
     }
 });
@@ -231,12 +204,8 @@ app.get('/stop_scraping', (req, res) => {
     res.send({ message: "Scraping stopped" });
 });
 
-
+// app.listen(PORT, () => {
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is working `);
     // console.log(`Server is working / running on http://localhost:${PORT}`);
 });
-
-// app.listen(PORT, () => {
-//     console.log(`Server is running on http://localhost:${PORT}`);
-// });

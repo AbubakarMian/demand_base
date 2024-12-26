@@ -8,11 +8,7 @@ let isStopped = false;
 let browser = null;
 let page = null;
 
-
-
-async function loadUrl(url, res) {
-
-
+async function loadUrl() {
     browser = await chromium.launch({
         headless: false,
         args: [
@@ -54,8 +50,6 @@ async function getDataFromPage(url, limit, res) {
 
     let iframe; // Define iframe in the broader scope
     try {
-        // Locate the iframe
-        console.log('here: 1');
         const iframeHandle = await page.waitForSelector('iframe', { timeout: 15000 });
         iframe = await iframeHandle.contentFrame(); // Assign iframe here
         if (!iframe) {
@@ -63,17 +57,12 @@ async function getDataFromPage(url, limit, res) {
             res.write(`data: [iframeNotFound]\n\n`);
             return;
         }
-        console.log('here: 2');
-
-        // Attempt to click the button
         for (let index = 0; index < 100 && finding_found; index++) {
             try {
-                console.log('here: 3');
                 const button = await iframe.$('.js-people-count');
                 if (button) {
                     await button.click();
                     finding_found = false;
-                    console.log('here: 3.2: found');
                     break;
                 } else {
                     await page.waitForTimeout(1300);
@@ -88,9 +77,6 @@ async function getDataFromPage(url, limit, res) {
         return;
     }
 
-    console.log('here: 5');
-
-    // Retry logic for locating the table
     let retries = 100;
     let contentTable = null;
     const tbl_name_expected = ['DataTables_Table_1', 'DataTables_Table_1_wrapper'];
@@ -99,16 +85,12 @@ async function getDataFromPage(url, limit, res) {
     try {
         for (let attempt = 0; attempt < retries; attempt++) {
             tbl_name = tbl_name_expected[attempt % tbl_name_expected.length];
-            console.log(`Attempting to locate table: ${tbl_name}`);
             try {
                 contentTable = await iframe.$(`#${tbl_name} table tr`);
                 const iframrows = await iframe.$$(`#${tbl_name} table tr`);
                 if (contentTable&&iframrows.length>2) {
-                    console.log(`Content table '${tbl_name}' found.`);
-                    console.log(`length `,iframrows.length);
                     break;
                 }
-                console.log(`Content table '${tbl_name}' not found.`);
                 await page.waitForTimeout(1300);
             } catch (tableError) {
                 console.error(`Table not found: ${tableError.message}`);
@@ -124,31 +106,20 @@ async function getDataFromPage(url, limit, res) {
         console.warn("No table found after retries. Continuing...");
     }
 
-    console.log('here: 9');
-
-    // Process rows in the table
     let start_index = 2;
     let rowIndex = start_index;
-    const extractedData = [];
     while (true) {
         try {
-            console.log('tbl found name is ',tbl_name);
             const rows = await iframe.$$(`#${tbl_name} table tr`);
             if (rowIndex >= rows.length) {
                 const isNextDisabled = await iframe.evaluate(() => {
-                    // const nextButton = document.querySelector('#DataTables_Table_1_next');
-
                     const nextButton = document.querySelector('#DataTables_Table_1_next');
                     if (nextButton) {
-                        nextButton.click();
-                        return false;
+                        return nextButton?.classList.contains('disabled');
                     } else {
                         console.error("Next button is not found or interactable.");
                         return true;
-
                     }
-
-                    // return nextButton?.classList.contains('disabled');
                 });
                 if (isNextDisabled) {
                     console.log("No more pages to process. Exiting...");
@@ -176,15 +147,6 @@ async function getDataFromPage(url, limit, res) {
             let email = await get_val(iframe,'.theme-people-email-value a',10);
             let phone = await get_val(iframe,'.js-corporate-people-phone',5);
             let address = await get_val(iframe,'.theme-executive-value.theme-address-value',10);
-            // let name = await iframe.$eval('.js-executive-name-text', el => el.innerText).catch(() => "");
-            // for(let i =0 ;i<5&&name!="";i++){
-            //      name = await iframe.$eval('.js-executive-name-text', el => el.innerText).catch(() => "");
-            //      await page.waitForTimeout(1000);
-            // }
-            // let email = await iframe.$eval('.theme-people-email-value a', el => el.innerText).catch(() => "");
-            // let phone = await iframe.$eval('.js-corporate-people-phone', el => el.innerText).catch(() => "");
-            // let address = await iframe.$eval('.theme-executive-value.theme-address-value', el => el.innerText).catch(() => "");
-        
             let uniqueKey = `${name}-${email}-${phone}-${address}`;
             let rowData = { name, email, phone, address, uniqueKey };
             res.write(`data: ${JSON.stringify(rowData)}\n\n`);
@@ -196,7 +158,7 @@ async function getDataFromPage(url, limit, res) {
             rowIndex++;
         } catch (rowError) {
             console.error(`Error processing row ${rowIndex}: ${rowError.message}`);
-            break; // Handle as per your requirements
+            break;
         }
     }
 
@@ -214,8 +176,6 @@ async function  get_val(iframe,selector,tryies){
     return text;
 }
 
-
-
 app.get('/loadurl', async (req, res) => {
     try {
         res.setHeader('Content-Type', 'text/event-stream');
@@ -224,13 +184,9 @@ app.get('/loadurl', async (req, res) => {
         res.flushHeaders();
 
         let url = req.query.url || '';
-        res.write(`data: [loggingIn]\n\n`);
+        res.write(`data: [Loading]\n\n`);
 
-        const data = await loadUrl(url, res);
-
-        // console.log(`Received request with limit: ${limit}`);
-
-        // Signal completion of data stream
+        await loadUrl();
         res.write(`data: [loadurlSuccess]\n\n`);
         res.end();
     } catch (error) {
@@ -239,7 +195,6 @@ app.get('/loadurl', async (req, res) => {
         res.end();
     }
 });
-
 
 app.get('/demand_base', async (req, res) => {
     try {
@@ -259,11 +214,7 @@ app.get('/demand_base', async (req, res) => {
         isStopped = false;
         res.write(`data: [loggingIn]\n\n`);
 
-        const data = await getDataFromPage(url, limit, res);
-
-        // console.log(`Received request with limit: ${limit}`);
-
-        // Signal completion of data stream
+        await getDataFromPage(url, limit, res);
         res.write(`data: [DONE]\n\n`);
         console.timeEnd("Execution Time");
         res.end();
@@ -282,7 +233,8 @@ app.get('/stop_scraping', (req, res) => {
 
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server is working / running on http://localhost:${PORT}`);
+    console.log(`Server is working `);
+    // console.log(`Server is working / running on http://localhost:${PORT}`);
 });
 
 // app.listen(PORT, () => {

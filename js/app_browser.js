@@ -12,12 +12,7 @@ window.addEventListener("beforeunload", () => {
 });
 
 document.getElementById('startButton').addEventListener('click', () => {
-    const url = document.getElementById("urlInput").value;
-
-    if (url == '') {
-        return;
-    }
-
+    
     $("#startButton").css('display', 'none');
     $("#stopButton").css('display', 'block');
     $("#downloadCsvButton").css('display', 'none');
@@ -29,13 +24,13 @@ document.getElementById('startButton').addEventListener('click', () => {
     isStopped = false;
     // tableBody.innerHTML = ''; 
     // eventSource = new EventSource(`https://node.hatinco.com/demand_base?url=${encodeURIComponent(url)}`);
-    eventSource = new EventSource(`http://localhost:5003/demand_base?url=${encodeURIComponent(url)}`);
+    eventSource = new EventSource(`http://localhost:5003/demand_base`);
     eventSource.onmessage = (event) => {
 
-        if (event.data === "[loggingIn]") {
+        if (event.data === "[Loading]") {
             const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
             // $('#loadingStatus').html('Loading loggin In ...');
-            $('#loadingMessage').text('Signing In...');
+            $('#loadingMessage').text('Loading...');
             loadingModal.toggle();
             return;
         }
@@ -102,7 +97,7 @@ document.getElementById('loadButton').addEventListener('click', async () => {
 });
 
 document.getElementById('stopButton').addEventListener('click', async () => {
-    $("#startButton").css('display', 'block');
+    $("#startButton").css('display', 'none');
     $("#stopButton").css('display', 'none');
     $("#downloadCsvButton").css('display', 'block');
 
@@ -155,6 +150,6 @@ document.getElementById('downloadCsvButton').addEventListener('click', (event) =
     const blob = new Blob([csvString], { type: 'text/csv' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = 'data.csv';
+    link.download = 'DemandBase.csv';
     link.click();
 });

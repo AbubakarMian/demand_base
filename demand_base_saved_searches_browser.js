@@ -142,6 +142,11 @@ async function getDataFromPage(url, limit, res) {
         }
         catch(error){
             console.warn(`Trying to get data: ${error.message}`);
+            if (error.message.includes('Target page, context or browser has been closed')) {
+                console.error("Critical error: Browser or page closed. Breaking the loop.");
+                break; // Exit the loop on critical errors
+            }
+            await page.waitForTimeout(1000);
         }
         
     }

@@ -12,17 +12,15 @@ window.addEventListener("beforeunload", () => {
 });
 
 document.getElementById('startButton').addEventListener('click', () => {
-    
     $("#startButton").css('display', 'none');
     $("#stopButton").css('display', 'block');
     $("#downloadCsvButton").css('display', 'none');
 
     const tableBody = document.querySelector("#dataTable tbody");
-
     if (eventSource && !isStopped) return; // Prevent starting if already running
     console.log('starting 1');
     isStopped = false;
-    // tableBody.innerHTML = ''; 
+    tableBody.innerHTML = ''; 
     // eventSource = new EventSource(`https://node.hatinco.com/demand_base?url=${encodeURIComponent(url)}`);
     eventSource = new EventSource(`http://localhost:5003/demand_base`);
     eventSource.onmessage = (event) => {
@@ -89,9 +87,10 @@ document.getElementById('startButton').addEventListener('click', () => {
 });
 
 document.getElementById('loadButton').addEventListener('click', async () => {
+    $("#loadButton").css('display', 'none');
     $("#startButton").css('display', 'block');
     $("#stopButton").css('display', 'none');
-    $("#downloadCsvButton").css('display', 'block');
+    $("#downloadCsvButton").css('display', 'none');
         await fetch('http://localhost:5003/loadurl', { method: 'GET' });
         console.log("Open browser.");
 });

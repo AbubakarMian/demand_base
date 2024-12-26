@@ -138,13 +138,6 @@ async function getDataFromPage(url, limit, res) {
                 checkedCheckboxes.forEach(checkbox => checkbox.click());
             });
 
-            // var closeButton = document.querySelector('.icon-close.theme-close-button');
-    // if (closeButton) {
-    //     closeButton.addEventListener('click', function () {
-    //         // Add the functionality you want on click
-    //         console.log('Close button clicked!');
-    //     });
-    // }
             rowIndex++;
         }
         catch(error){

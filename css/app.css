@@ -33,8 +33,18 @@ h2 {
 }
 
 .server_error{
-    color: red;
     display: none;
+    color: #ff4d4d; /* Bright red to indicate an error */
+    background-color: #ffe6e6; /* Light red background for emphasis */
+    padding: 10px; /* Space around the text */
+    border: 1px solid #ff0000; /* Red border to highlight */
+    border-radius: 5px; /* Rounded corners */
+    font-size: 1.2rem; /* Slightly larger font size */
+    text-align: center; /* Center-align the text */
+    margin: 20px auto; /* Space around the message */
+    width: 80%; /* Restrict the width */
+    max-width: 600px; /* Ensure it doesn't get too wide */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
 }
 .btn {
     border-radius: 5px;

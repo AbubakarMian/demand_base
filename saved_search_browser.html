@@ -11,9 +11,10 @@
 
 <body>
     <div class="container">
-        <h5 class="server_error">Something went wrong! Please close the terminal and browser if they are open, then restart the application.</h5>
+        <h5 class="server_error">Something went wrong! Please close the terminal and browser if they are open, then
+            restart the application.</h5>
         <h2>Demand Base Data Scraper</h2>
-        <!-- Toast Container -->
+
         <div id="toastContainer" class="position-fixed top-0 start-0 p-3" style="z-index: 1055; width: 300px;">
             <!-- Success Toast -->
             <div id="infoToast" class="toast align-items-center text-bg-success border-0 shadow" role="alert"
@@ -35,17 +36,31 @@
             </div>
         </div>
 
-        <!-- Form Section -->
         <form id="scraperForm" class="mt-4">
 
             <div class="btn_area btn_area_center">
                 <button type="button" id="loadButton" class="btn btn-primary">Open</button>
-                <button type="button" id="startButton" style="display: none;" class="btn btn-primary">Start Search</button>
+                <button type="button" id="startButton" style="display: none;" class="btn btn-primary">Start
+                    Search</button>
                 <button type="button" id="stopButton" style="display: none;" class="btn btn-danger">Stop Search</button>
                 <button id="downloadCsvButton" style="display: none;" class="btn btn-info">Download CSV</button>
             </div>
         </form>
 
+        <div class="record-info">
+            <div>
+                <div>Total Records</div>
+                <span id="total">0</span>
+            </div>
+            <div>
+                <div>Unique Records</div>
+                <span id="unique">0</span>
+            </div>
+            <div>
+                <div>Duplicate Records</div>
+                <span id="duplicate">0</span>
+            </div>
+        </div>
         <!-- Table Section -->
         <table id="dataTable" class="table mt-4">
             <thead>

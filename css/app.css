@@ -97,6 +97,31 @@ table td {
     animation: slideIn 0.5s ease-out;
 }
 
+.record-info {
+    display: flex;
+    justify-content: space-between;
+    background-color: #e9ecef;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    margin-top: 20px;
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+.record-info div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.record-info span {
+    font-weight: bold;
+    font-size: 1.3rem;
+    color: #495057;
+}
+
 @keyframes slideIn {
     from {
         transform: translateX(-100%);

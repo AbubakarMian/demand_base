@@ -1,95 +1,190 @@
 let eventSource;
 let isStopped = false;
-let uniqueRecords = new Set();
+let db;
 let table_data = [];
+let totalRecords = 0;
+let uniqueRecords = 0;
+let duplicateRecords = 0;
 
 
 
-window.addEventListener("beforeunload", () => {
-    if (eventSource) {
-        eventSource.close();
+function initializeIndexedDB() {
+    return new Promise((resolve, reject) => {
+        const dbRequest = indexedDB.open("UniqueRecordsDB", 1);
+
+        dbRequest.onupgradeneeded = (event) => {
+            db = event.target.result;
+            if (!db.objectStoreNames.contains("records")) {
+                db.createObjectStore("records", { keyPath: "uniqueKey" });
+            }
+        };
+
+        dbRequest.onsuccess = (event) => {
+            db = event.target.result;
+            const transaction = db.transaction("records", "readwrite");
+            const store = transaction.objectStore("records");
+
+            // Clear previous data
+            store.clear().onsuccess = () => {
+                console.log("Previous IndexedDB data cleared.");
+                resolve();
+            };
+
+            transaction.onerror = (error) => {
+                console.error("Error clearing IndexedDB:", error);
+                reject(error);
+            };
+        };
+
+        dbRequest.onerror = (event) => {
+            console.error("Error initializing IndexedDB:", event.target.error);
+            reject(event.target.error);
+        };
+    });
+}
+
+// Add record to IndexedDB
+function addRecordToIndexedDB(record, onSuccess, onDuplicate) {
+    if (!db) {
+        console.error("IndexedDB is not initialized!");
+        return;
     }
-});
+    const transaction = db.transaction("records", "readwrite");
+    const store = transaction.objectStore("records");
 
-document.getElementById('startButton').addEventListener('click', () => {
-    $("#startButton").css('display', 'none');
-    $("#stopButton").css('display', 'block');
-    $("#downloadCsvButton").css('display', 'none');
+    const getRequest = store.get(record.uniqueKey);
+    totalRecords++;
+
+    getRequest.onsuccess = () => {
+        if (!getRequest.result) {
+            const addRequest = store.add(record);
+            addRequest.onsuccess = onSuccess;
+            uniqueRecords++;
+        } else {
+            onDuplicate();
+            duplicateRecords++;
+        }
+        updateRecordNumbers(totalRecords, uniqueRecords, duplicateRecords);
+    };
+
+    getRequest.onerror = () => {
+        console.error("Error accessing IndexedDB.");
+    };
+}
+function updateRecordNumbers(totalRecords, uniqueRecords, duplicateRecords) {
+    $('#total').text(totalRecords);
+    $('#unique').text(uniqueRecords);
+    $('#duplicate').text(duplicateRecords);
+}
+document.getElementById("startButton").addEventListener("click", () => {
+    $("#startButton").css("display", "none");
+    $("#stopButton").css("display", "block");
+    $("#downloadCsvButton").css("display", "none");
 
     const tableBody = document.querySelector("#dataTable tbody");
-    if (eventSource && !isStopped) return; // Prevent starting if already running
-    console.log('starting 1');
+    initializeIndexedDB();
+    // Prevent starting if already running
+    if (eventSource && !isStopped) return;
+
+    console.log("Starting data fetch...");
     isStopped = false;
-    tableBody.innerHTML = ''; 
-    // eventSource = new EventSource(`https://node.hatinco.com/demand_base?url=${encodeURIComponent(url)}`);
+    tableBody.innerHTML = "";
+
+    // Replace with your actual API endpoint
     eventSource = new EventSource(`http://localhost:5003/demand_base`);
+
     eventSource.onmessage = (event) => {
-
         if (event.data === "[Loading]") {
-            const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
-            // $('#loadingStatus').html('Loading loggin In ...');
-            $('#loadingMessage').text('Loading...');
-            loadingModal.toggle();
+            showLoadingModal("Loading...");
             return;
         }
-        if (event.data === "[loadingURL]") {
-            $('#loadingMessage').text('Loading URL...');
 
-            // $('#loadingStatus').html('Loading URL ...');
+        if (event.data === "[loadingURL]") {
+            showLoadingModal("Loading URL...");
             return;
         }
+
         if (event.data === "[DONE]") {
             eventSource.close();
-            $('#stopButton').click();
+            $("#stopButton").click();
             return;
         }
+
         if (event.data === "[ERROR]") {
-            $('.server_error').css('display','block');
+            showServerError();
             eventSource.close();
-            $('#stopButton').click();
+            $("#stopButton").click();
             return;
         }
-        // $('#loadingStatus').html('');
 
-        $('#closeLoadingbtn').click();
+        hideLoadingModal();
 
+        // Parse the row data
         const rowData = JSON.parse(event.data);
-        const toastContent = `Added: Name: ${rowData.name},  Email: ${rowData.email},phone: ${rowData.phone},address: ${rowData.address}`;
-        let uniqueKey = rowData.uniqueKey;
-        console.log('starting 2', uniqueKey);
 
-        if (!uniqueRecords.has(uniqueKey)) {
-            uniqueRecords.add(uniqueKey);
-            table_data = {
-                name: rowData.name, email: rowData.email,
-                phone: rowData.phone, address: rowData.address
-            };
-            const newRow = document.createElement("tr");
-            newRow.innerHTML = `
-                    <td>${rowData.name}</td>
-                    <td>${rowData.email}</td>
-                    <td>${rowData.phone}</td>
-                    <td>${rowData.address}</td>`;
-            tableBody.appendChild(newRow);
-            document.getElementById('toastContent').innerText = toastContent;
-
-            const infoToast = new bootstrap.Toast(document.getElementById('infoToast'));
-            infoToast.show();
-        }
-        else {
-            console.log('else starting 3');
-
-            const errorContent = `Duplicate entry : ${toastContent}`;
-            document.getElementById('errorToastContent').innerText = errorContent;
-            const errorToast = new bootstrap.Toast(document.getElementById('errorToast'));
-            errorToast.show();
-        }
+        // Add record to IndexedDB for deduplication
+        addRecordToIndexedDB(
+            rowData,
+            () => {
+                // Success: Record is unique, add to table
+                addRowToTable(rowData, tableBody);
+                showToast(`Added: Name: ${rowData.name}, Email: ${rowData.email}, Phone: ${rowData.phone}, Address: ${rowData.address}`);
+            },
+            () => {
+                // Duplicate record found
+                showErrorToast(`Duplicate entry: Name: ${rowData.name}, Email: ${rowData.email}, Phone: ${rowData.phone}, Address: ${rowData.address}`);
+            }
+        );
     };
 
     eventSource.onerror = (error) => {
         console.error("Error receiving data:", error);
+        showServerError();
         eventSource.close();
     };
+});
+
+function showLoadingModal(message) {
+    $("#loadingMessage").text(message);
+    const loadingModal = new bootstrap.Modal(document.getElementById("loadingModal"));
+    loadingModal.show();
+}
+
+function hideLoadingModal() {
+    $("#closeLoadingbtn").click();
+}
+
+function showServerError() {
+    $(".server_error").css("display", "block");
+}
+
+function addRowToTable(rowData, tableBody) {
+    const newRow = document.createElement("tr");
+    newRow.innerHTML = `
+        <td>${rowData.name}</td>
+        <td>${rowData.email}</td>
+        <td>${rowData.phone}</td>
+        <td>${rowData.address}</td>`;
+    tableBody.appendChild(newRow);
+}
+
+function showToast(message) {
+    document.getElementById("toastContent").innerText = message;
+    const infoToast = new bootstrap.Toast(document.getElementById("infoToast"));
+    infoToast.show();
+}
+
+function showErrorToast(message) {
+    document.getElementById("errorToastContent").innerText = message;
+    const errorToast = new bootstrap.Toast(document.getElementById("errorToast"));
+    errorToast.show();
+}
+
+////////
+window.addEventListener("beforeunload", () => {
+    if (eventSource) {
+        eventSource.close();
+    }
 });
 
 document.getElementById('loadButton').addEventListener('click', async () => {
@@ -97,8 +192,8 @@ document.getElementById('loadButton').addEventListener('click', async () => {
     $("#startButton").css('display', 'block');
     $("#stopButton").css('display', 'none');
     $("#downloadCsvButton").css('display', 'none');
-        await fetch('http://localhost:5003/loadurl', { method: 'GET' });
-        console.log("Open browser.");
+    await fetch('http://localhost:5003/loadurl', { method: 'GET' });
+    console.log("Open browser.");
 });
 
 document.getElementById('stopButton').addEventListener('click', async () => {

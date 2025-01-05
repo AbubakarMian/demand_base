@@ -6,8 +6,6 @@ let totalRecords = 0;
 let uniqueRecords = 0;
 let duplicateRecords = 0;
 
-
-
 function initializeIndexedDB() {
     return new Promise((resolve, reject) => {
         const dbRequest = indexedDB.open("UniqueRecordsDB", 1);
@@ -24,7 +22,6 @@ function initializeIndexedDB() {
             const transaction = db.transaction("records", "readwrite");
             const store = transaction.objectStore("records");
 
-            // Clear previous data
             store.clear().onsuccess = () => {
                 console.log("Previous IndexedDB data cleared.");
                 resolve();
@@ -43,8 +40,7 @@ function initializeIndexedDB() {
     });
 }
 
-// Add record to IndexedDB
-function addRecordToIndexedDB(record, onSuccess, onDuplicate) {
+function addRecordToIndexedDB(records_arr, onSuccess, onDuplicate) {
     if (!db) {
         console.error("IndexedDB is not initialized!");
         return;
@@ -52,24 +48,26 @@ function addRecordToIndexedDB(record, onSuccess, onDuplicate) {
     const transaction = db.transaction("records", "readwrite");
     const store = transaction.objectStore("records");
 
-    const getRequest = store.get(record.uniqueKey);
-    totalRecords++;
+    records_arr.forEach(record => {
+        const getRequest = store.get(record.uniqueKey);
+        totalRecords++;
+        getRequest.onsuccess = () => {
+            if (!getRequest.result) {
+                const addRequest = store.add(record);
+                addRequest.onsuccess = onSuccess;
+                uniqueRecords++;
+            } else {
+                onDuplicate();
+                duplicateRecords++;
+            }
+            updateRecordNumbers(totalRecords, uniqueRecords, duplicateRecords);
+        };
 
-    getRequest.onsuccess = () => {
-        if (!getRequest.result) {
-            const addRequest = store.add(record);
-            addRequest.onsuccess = onSuccess;
-            uniqueRecords++;
-        } else {
-            onDuplicate();
-            duplicateRecords++;
-        }
-        updateRecordNumbers(totalRecords, uniqueRecords, duplicateRecords);
-    };
+        getRequest.onerror = () => {
+            console.error("Error accessing IndexedDB.");
+        };
+    });
 
-    getRequest.onerror = () => {
-        console.error("Error accessing IndexedDB.");
-    };
 }
 function updateRecordNumbers(totalRecords, uniqueRecords, duplicateRecords) {
     $('#total').text(totalRecords);
@@ -89,9 +87,10 @@ document.getElementById("startButton").addEventListener("click", () => {
     console.log("Starting data fetch...");
     isStopped = false;
     tableBody.innerHTML = "";
+    let start_page = $('#start_page').val();
 
     // Replace with your actual API endpoint
-    eventSource = new EventSource(`http://localhost:5003/demand_base`);
+    eventSource = new EventSource(`http://localhost:5003/demand_base?start_page=${start_page}`);
 
     eventSource.onmessage = (event) => {
         if (event.data === "[Loading]") {
@@ -118,26 +117,23 @@ document.getElementById("startButton").addEventListener("click", () => {
         }
 
         hideLoadingModal();
-
-        // Parse the row data
-        const rowData = JSON.parse(event.data);
-
-        // Add record to IndexedDB for deduplication
+        const response = JSON.parse(event.data);
+        const page_num = response.page_num;
+        const rowsData = response.data;
         addRecordToIndexedDB(
-            rowData,
+            rowsData,
             () => {
-                // Success: Record is unique, add to table
-                addRowToTable(rowData, tableBody);
-                showToast(`Added: Name: ${rowData.name}, Email: ${rowData.email}, Phone: ${rowData.phone}, Address: ${rowData.address}`);
+                addRowsToTable(rowsData, tableBody);
+                showToast(`${rowsData.length} Rows added successfully`);
             },
             () => {
-                // Duplicate record found
-                showErrorToast(`Duplicate entry: Name: ${rowData.name}, Email: ${rowData.email}, Phone: ${rowData.phone}, Address: ${rowData.address}`);
+                showErrorToast(`Duplicate data found`);
             }
         );
     };
 
     eventSource.onerror = (error) => {
+        showErrorToast(`Browser isn't responding please close captch its closed and try agin from page number ${rowsData.page_num}.`);
         console.error("Error receiving data:", error);
         showServerError();
         eventSource.close();
@@ -158,14 +154,17 @@ function showServerError() {
     $(".server_error").css("display", "block");
 }
 
-function addRowToTable(rowData, tableBody) {
-    const newRow = document.createElement("tr");
-    newRow.innerHTML = `
+function addRowsToTable(rowsData, tableBody) {
+    tableBody.innerHTML = "";
+    rowsData.forEach(rowData => {
+        const newRow = document.createElement("tr");
+        newRow.innerHTML = `
         <td>${rowData.name}</td>
         <td>${rowData.email}</td>
         <td>${rowData.phone}</td>
         <td>${rowData.address}</td>`;
-    tableBody.appendChild(newRow);
+        tableBody.appendChild(newRow);
+    });
 }
 
 function showToast(message) {
@@ -180,7 +179,6 @@ function showErrorToast(message) {
     errorToast.show();
 }
 
-////////
 window.addEventListener("beforeunload", () => {
     if (eventSource) {
         eventSource.close();
@@ -211,13 +209,12 @@ document.getElementById('stopButton').addEventListener('click', async () => {
 });
 
 document.getElementById('downloadCsvButton').addEventListener('click', (event) => {
-    $("#stopButton").click();
+    // $("#stopButton").click();
     event.preventDefault();
     const table = document.querySelector("#dataTable");
     const rows = table.querySelectorAll('tr');
     const csvData = [];
 
-    // Loop through all rows and cells to extract data
     rows.forEach((row, index) => {
         const rowData = [];
         const cells = row.querySelectorAll('td, th');
@@ -225,12 +222,9 @@ document.getElementById('downloadCsvButton').addEventListener('click', (event) =
         cells.forEach(cell => {
             let cellText = cell.innerText.trim();
 
-            // Escape double quotes by doubling them
             if (cellText.includes('"')) {
                 cellText = cellText.replace(/"/g, '""');
             }
-
-            // Enclose the cell value in double quotes if it contains a comma, a quote, or a newline
             if (cellText.includes(',') || cellText.includes('"') || cellText.includes('\n')) {
                 cellText = `"${cellText}"`;
             }
@@ -242,11 +236,8 @@ document.getElementById('downloadCsvButton').addEventListener('click', (event) =
             csvData.push(rowData.join(','));
         }
     });
-
-    // Create a CSV string
     const csvString = csvData.join('\n');
 
-    // Create a Blob with the CSV data and trigger a download
     const blob = new Blob([csvString], { type: 'text/csv' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);

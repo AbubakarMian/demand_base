@@ -60,7 +60,7 @@ async function loadUrl() {
                 postData: request.postData(),
             });
 
-            console.log("Captured Request Details:", interceptedRequests[0]);
+            // console.log("Captured Request Details:", interceptedRequests[0]);
         }
     });
 }
@@ -263,14 +263,51 @@ app.get('/loadurl', async (req, res) => {
     }
 });
 
+async function click_next_page() {
+    try {
+        console.log('click_next_page page clicked');
+        let iframe = null;
+        const iframeHandle = await page.waitForSelector('iframe', { timeout: 15000 });
+        iframe = await iframeHandle.contentFrame();
+        if (!iframe) {
+            console.error("Error: Unable to access iframe content.");
+            res.write(`data: [iframeNotFound]\n\n`);
+            return { iframe: null, finding_found: false, tbl_name: '', contentTable: null };
+        }
+        const isNextDisabled = await iframe.evaluate(() => {
+            const nextButton = document.querySelector('#DataTables_Table_1_next');
+            if (nextButton) {
+                return nextButton?.classList.contains('disabled');
+            } else {
+                console.error("Next button is not found or interactable.");
+                return true;
+            }
+        });
+        if (isNextDisabled) {
+            console.log("Next button is Disabled. Exiting...");
+        }
+        await iframe.evaluate(() => {
+            document.querySelector('#DataTables_Table_1_next').click();
+        });
+        await page.waitForTimeout(2000);
+    } catch (error) {
+        console.error(`Error in Turn page : ${error.message}`);
+    }
+}
+
 
 async function loadFromPage(url, limit, page_num, res) {
     console.log('loadFromPage page num:', page_num);
-
+    let randomWaitTime = 0;
     if (interceptedRequests.length > 0) {
         let has_data = true;
         while (has_data) {
             try {
+                if (!isNaN(page_num) && page_num % 5 === 0) {
+                await click_next_page();
+                randomWaitTime = getRandomNumber(7500, 9500);
+                await page.waitForTimeout(randomWaitTime);
+                }
                 const originalRequest = interceptedRequests[0];
                 let modifiedHeaders = {
                     ...originalRequest.headers,
@@ -299,8 +336,8 @@ async function loadFromPage(url, limit, page_num, res) {
 
                 responseJson.forEach((item) => {
                     let name = item?.peopleDetails?.fullName ?? "";
-                    let email = item?.contactDetails?.email ?? "";
-                    let phone = item?.contactDetails?.phone ?? "";
+                    let email = item?.contactDetails?.[0]?.email ?? "";
+                    let phone = item?.contactDetails?.[0]?.phone ?? "";
                     let address = item?.peopleDetails?.address ?? "";
                     let uniqueKey = `${name}-${email}-${phone}-${address}`;
                     response_arr.push({
@@ -310,6 +347,8 @@ async function loadFromPage(url, limit, page_num, res) {
                 let res_data = { page_num, data: response_arr };
                 res.write(`data: ${JSON.stringify(res_data)}\n\n`);
                 page_num++;
+                randomWaitTime = getRandomNumber(1500, 9500);
+                await page.waitForTimeout(randomWaitTime);
             } catch (error) {
                 console.error(`Error in loadFromPage: ${error.message}`);
                 res.write(`data: {"error": "${error.message}"}\n\n`);
@@ -338,7 +377,8 @@ app.get('/demand_base', async (req, res) => {
         });
 
         let limit = parseInt(req.query.limit) || 50;
-        let page = parseInt(req.query.start_page) || 1;
+        let page = parseInt(req.query.start_page, 10) || 1;
+        page = isNaN(page) ? 1 : page;
         let url = req.query.url || '';
         isStopped = false;
         res.write(`data: [loggingIn]\n\n`);

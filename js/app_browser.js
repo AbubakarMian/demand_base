@@ -118,8 +118,11 @@ document.getElementById("startButton").addEventListener("click", () => {
 
         hideLoadingModal();
         const response = JSON.parse(event.data);
-        const page_num = response.page_num;
+        const page_num = response.page_num ?? '';
         const rowsData = response.data;
+        if (!isNaN(page_num)) {
+            $('#pages_scraped').text(page_num);
+        }
         addRecordToIndexedDB(
             rowsData,
             () => {

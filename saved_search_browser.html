@@ -44,7 +44,8 @@
                 <button type="button" id="startButton" style="display: none;" class="btn btn-primary">Start
                     Search</button>
                 <button type="button" id="stopButton" style="display: none;" class="btn btn-danger">Stop Search</button>
-                <button id="downloadCsvButton" style="display: none;" class="btn btn-info">Download CSV</button>
+                <button type="button" id="downloadCsvButton" onclick="downloadData(this)" style="" class="btn btn-info">Download CSV</button>
+                <button type="button" id="clear_previous_data" class="btn btn-info" onclick="clear_previous_record()">Clear Previous Data </button>
             </div>
         </form>
 
@@ -57,8 +58,8 @@
                 <div>Unique Records</div>
                 <span id="unique">0</span>
             </div>
-            <div>
-                <div>Duplicate Records</div>
+            <div style="display: none;">
+                <div>Duplicates Removed</div>
                 <span id="duplicate">0</span>
             </div>
             <div>

@@ -5,32 +5,55 @@ let table_data = [];
 let totalRecords = 0;
 let uniqueRecords = 0;
 let duplicateRecords = 0;
+let db_store = null;
 
-function initializeIndexedDB() {
+async function total_records_view_update() {
+    let total = await getTotalRecords();
+    console.log('total number records : ', total);
+    $('#total').text(total);
+    $('#unique').text(total);
+}
+async function clear_previous_record() {
+    try {
+        if (!db) {
+            await initializeIndexedDB();
+        }
+
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction("records", "readwrite");
+            const objectStore = transaction.objectStore("records");
+            const clearRequest = objectStore.clear();
+
+            clearRequest.onsuccess = () => {
+                console.log("Previous IndexedDB data cleared.");
+                resolve();
+            };
+
+            clearRequest.onerror = (event) => {
+                console.error("Error clearing IndexedDB data:", event.target.error);
+                reject(event.target.error);
+            };
+        });
+    } catch (error) {
+        console.error("Error in clear_previous_record:", error);
+        throw error;
+    }
+}
+async function initializeIndexedDB() {
     return new Promise((resolve, reject) => {
         const dbRequest = indexedDB.open("UniqueRecordsDB", 1);
 
         dbRequest.onupgradeneeded = (event) => {
-            db = event.target.result;
+            const db = event.target.result;
             if (!db.objectStoreNames.contains("records")) {
                 db.createObjectStore("records", { keyPath: "uniqueKey" });
             }
         };
 
         dbRequest.onsuccess = (event) => {
-            db = event.target.result;
-            const transaction = db.transaction("records", "readwrite");
-            const store = transaction.objectStore("records");
-
-            store.clear().onsuccess = () => {
-                console.log("Previous IndexedDB data cleared.");
-                resolve();
-            };
-
-            transaction.onerror = (error) => {
-                console.error("Error clearing IndexedDB:", error);
-                reject(error);
-            };
+            db = event.target.result; // Save the database reference
+            console.log("IndexedDB initialized successfully.");
+            resolve();
         };
 
         dbRequest.onerror = (event) => {
@@ -40,107 +63,148 @@ function initializeIndexedDB() {
     });
 }
 
-function addRecordToIndexedDB(records_arr, onSuccess, onDuplicate) {
+async function addRecordToIndexedDB(records_arr, onSuccess, onDuplicate) {
     if (!db) {
         console.error("IndexedDB is not initialized!");
         return;
     }
+
+    console.log("Adding records to IndexedDB...");
     const transaction = db.transaction("records", "readwrite");
     const store = transaction.objectStore("records");
 
-    records_arr.forEach(record => {
-        const getRequest = store.get(record.uniqueKey);
-        totalRecords++;
-        getRequest.onsuccess = () => {
-            if (!getRequest.result) {
-                const addRequest = store.add(record);
-                addRequest.onsuccess = onSuccess;
-                uniqueRecords++;
+    for (const record of records_arr) {
+        console.log("Processing record:", record);
+
+        try {
+            const existingRecord = await checkRecordExists(store, record.uniqueKey);
+
+            if (!existingRecord) {
+                await addRecord(store, record);
+                console.log("Record added successfully:", record);
+                onSuccess();
             } else {
+                console.log("Duplicate record found:", record.uniqueKey);
                 onDuplicate();
-                duplicateRecords++;
             }
-            updateRecordNumbers(totalRecords, uniqueRecords, duplicateRecords);
-        };
+        } catch (err) {
+            console.error("Error processing record:", err);
+        }
+    }
 
-        getRequest.onerror = () => {
-            console.error("Error accessing IndexedDB.");
-        };
-    });
+    transaction.oncomplete = () => {
+        console.log("Transaction completed.");
+    };
 
+    transaction.onerror = (err) => {
+        console.error("Transaction error:", err.target.error);
+    };
 }
+
+// Helper function to check if a record exists
+function checkRecordExists(store, uniqueKey) {
+    return new Promise((resolve, reject) => {
+        const request = store.get(uniqueKey);
+
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = (err) => reject(err.target.error);
+    });
+}
+
+// Helper function to add a record
+function addRecord(store, record) {
+    return new Promise((resolve, reject) => {
+        const request = store.add(record);
+
+        request.onsuccess = () => resolve();
+        request.onerror = (err) => reject(err.target.error);
+    });
+}
+
 function updateRecordNumbers(totalRecords, uniqueRecords, duplicateRecords) {
-    $('#total').text(totalRecords);
-    $('#unique').text(uniqueRecords);
-    $('#duplicate').text(duplicateRecords);
+    total_records_view_update();
+    // $('#total').text(totalRecords);
+    // $('#unique').text(uniqueRecords);
+    // $('#duplicate').text(duplicateRecords);
 }
 document.getElementById("startButton").addEventListener("click", () => {
-    $("#startButton").css("display", "none");
-    $("#stopButton").css("display", "block");
-    $("#downloadCsvButton").css("display", "none");
+    try {
+        $("#startButton").css("display", "none");
+        $("#stopButton").css("display", "block");
+        $("#downloadCsvButton").css("display", "none");
 
-    const tableBody = document.querySelector("#dataTable tbody");
-    initializeIndexedDB();
-    // Prevent starting if already running
-    if (eventSource && !isStopped) return;
+        const tableBody = document.querySelector("#dataTable tbody");
+        initializeIndexedDB();
+        // Prevent starting if already running
+        if (eventSource && !isStopped) return;
 
-    console.log("Starting data fetch...");
-    isStopped = false;
-    tableBody.innerHTML = "";
-    let start_page = $('#start_page').val();
+        console.log("Starting data fetch...");
+        isStopped = false;
+        tableBody.innerHTML = "";
+        let start_page = $('#start_page').val();
 
-    // Replace with your actual API endpoint
-    eventSource = new EventSource(`http://localhost:5003/demand_base?start_page=${start_page}`);
+        // Replace with your actual API endpoint
+        eventSource = new EventSource(`http://localhost:5003/demand_base?start_page=${start_page}`);
 
-    eventSource.onmessage = (event) => {
-        if (event.data === "[Loading]") {
-            showLoadingModal("Loading...");
-            return;
-        }
+        eventSource.onmessage = (event) => {
+            if (event.data === "[Loading]") {
+                showLoadingModal("Loading...");
+                return;
+            }
 
-        if (event.data === "[loadingURL]") {
-            showLoadingModal("Loading URL...");
-            return;
-        }
+            if (event.data === "[loadingURL]") {
+                showLoadingModal("Loading URL...");
+                return;
+            }
 
-        if (event.data === "[DONE]") {
-            eventSource.close();
-            $("#stopButton").click();
-            return;
-        }
+            if (event.data === "[DONE]") {
+                eventSource.close();
+                $("#stopButton").click();
+                return;
+            }
 
-        if (event.data === "[ERROR]") {
+            if (event.data === "[ERROR]") {
+                showServerError();
+                eventSource.close();
+                $("#stopButton").click();
+                return;
+            }
+
+            hideLoadingModal();
+            const response = JSON.parse(event.data);
+            const page_num = response.page_num ?? '';
+            const rowsData = response.data;
+            if (!isNaN(page_num)) {
+                $('#pages_scraped').text(page_num);
+            }
+            else {
+                console.log('i think json failed', response);
+                console.log('page_num', page_num);
+            }
+            addRecordToIndexedDB(
+                rowsData,
+                () => {
+                    addRowsToTable(rowsData, tableBody);
+                    showToast(`${rowsData.length} Rows added successfully`);
+                },
+                () => {
+                    showErrorToast(`Duplicate data found`);
+                }
+            );
+        };
+
+        eventSource.onerror = (error) => {
+            showErrorToast(`Browser isn't responding please close captch its closed and try agin from page number ${rowsData.page_num}.`);
+            console.error("Error receiving data:", error);
             showServerError();
             eventSource.close();
-            $("#stopButton").click();
-            return;
-        }
-
-        hideLoadingModal();
-        const response = JSON.parse(event.data);
-        const page_num = response.page_num ?? '';
-        const rowsData = response.data;
-        if (!isNaN(page_num)) {
-            $('#pages_scraped').text(page_num);
-        }
-        addRecordToIndexedDB(
-            rowsData,
-            () => {
-                addRowsToTable(rowsData, tableBody);
-                showToast(`${rowsData.length} Rows added successfully`);
-            },
-            () => {
-                showErrorToast(`Duplicate data found`);
-            }
-        );
-    };
-
-    eventSource.onerror = (error) => {
+        };
+    } catch (error) {
         showErrorToast(`Browser isn't responding please close captch its closed and try agin from page number ${rowsData.page_num}.`);
-        console.error("Error receiving data:", error);
+        console.error("Main try catch :", error);
         showServerError();
         eventSource.close();
-    };
+    }
 });
 
 function showLoadingModal(message) {
@@ -211,39 +275,93 @@ document.getElementById('stopButton').addEventListener('click', async () => {
     }
 });
 
-document.getElementById('downloadCsvButton').addEventListener('click', (event) => {
-    // $("#stopButton").click();
-    event.preventDefault();
-    const table = document.querySelector("#dataTable");
-    const rows = table.querySelectorAll('tr');
-    const csvData = [];
+async function getAllRecords() {
+    if (!db) {
+        console.error("Database is not initialized!");
+        return [];
+    }
 
-    rows.forEach((row, index) => {
-        const rowData = [];
-        const cells = row.querySelectorAll('td, th');
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction("records", "readonly");
+        const store = transaction.objectStore("records");
+        const request = store.getAll();
 
-        cells.forEach(cell => {
-            let cellText = cell.innerText.trim();
+        request.onsuccess = () => {
+            console.log("Fetched records:", request.result);
+            resolve(request.result || []);
+        };
 
-            if (cellText.includes('"')) {
-                cellText = cellText.replace(/"/g, '""');
-            }
-            if (cellText.includes(',') || cellText.includes('"') || cellText.includes('\n')) {
-                cellText = `"${cellText}"`;
-            }
-
-            rowData.push(cellText);
-        });
-
-        if (rowData.length > 0) {
-            csvData.push(rowData.join(','));
-        }
+        request.onerror = () => {
+            console.error("Error fetching all records from IndexedDB:", request.error);
+            reject(request.error);
+        };
     });
-    const csvString = csvData.join('\n');
+}
 
-    const blob = new Blob([csvString], { type: 'text/csv' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'DemandBase.csv';
-    link.click();
-});
+function convertToCSV(data) {
+    if (!data.length) return "";
+    const headers = Object.keys(data[0]).filter((header) => header !== "uniqueKey");
+    const csvRows = [headers.join(",")];
+    data.forEach((record) => {
+        const row = headers.map((header) => {
+            const value = record[header];
+            return `"${String(value || "").replace(/"/g, '""')}"`;
+        });
+        csvRows.push(row.join(","));
+    });
+
+    return csvRows.join("\n");
+}
+
+function downloadCSV(csvData) {
+    console.log('downloadCSV');
+    const blob = new Blob([csvData], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const link = $("<a>")
+        .attr("href", url)
+        .attr("download", "data.csv")
+        .appendTo("body");
+    link[0].click();
+    link.remove();
+    URL.revokeObjectURL(url);
+}
+
+async function getTotalRecords() {
+    if (!db) {
+        console.log("Database is not initialized. Initializing now...");
+        await initializeIndexedDB();
+    }
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction("records", "readonly");
+        const objectStore = transaction.objectStore("records");
+        const request = objectStore.count();
+
+        request.onsuccess = () => {
+            console.log("Total records count:", request.result);
+            resolve(request.result);
+        };
+
+        request.onerror = (err) => {
+            console.error("Error counting records:", err.target.error);
+            reject(err.target.error);
+        };
+    });
+}
+async function downloadData() {
+    try {
+        if (!db) {
+            await initializeIndexedDB();
+        }
+        const records = await getAllRecords();
+        console.log("Records fetched for download:", records);
+        if (!records || records.length === 0) {
+            alert("No data to download!");
+            return;
+        }
+        const csvData = convertToCSV(records);
+        downloadCSV(csvData);
+    } catch (error) {
+        console.error("Error downloading CSV:", error);
+        alert("Error occurred while downloading data. Please try again.");
+    }
+}

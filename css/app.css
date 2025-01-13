@@ -67,8 +67,8 @@ h2 {
 
 .btn_area_center{
     display: flex;
-    justify-content: center;
-    align-items: center;
+    /* justify-content: center;
+    align-items: center; */
     height: 100%;
 }
 

@@ -7,6 +7,39 @@ let uniqueRecords = 0;
 let duplicateRecords = 0;
 let db_store = null;
 
+$(function(){
+    documentReadyFunction();
+})
+async function documentReadyFunction(){
+    console.log("Document Cookies:", document.cookie);
+    const savedPageNum = getPageNumberFromCookie();
+    console.log('documentReadyFunction');
+    if (savedPageNum) {
+        console.log(`Saved page number: ${savedPageNum}`);
+        $('#start_page').val(savedPageNum); // Update the UI with the saved value
+        $('#pages_scraped').text(savedPageNum); // Update the UI with the saved value
+    }
+}
+
+function savePageNumberToCookie(pageNum) {
+    const expirationDate = new Date();
+    expirationDate.setDate(expirationDate.getDate() + 15); // Set expiration to 15 days from now
+    const cookieValue = `page_num=${pageNum}; expires=${expirationDate.toUTCString()}; path=/; SameSite=Lax`;
+    document.cookie = cookieValue;
+    console.log(`Cookie saved: ${cookieValue}`);
+}
+
+function getPageNumberFromCookie() {
+    const cookies = document.cookie.split(';');
+    console.log('my cookie',cookies);
+    for (const cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'page_num') {
+            return value;
+        }
+    }
+    return null; // Return null if the cookie is not found
+}
 async function total_records_view_update() {
     let total = await getTotalRecords();
     console.log('total number records : ', total);
@@ -18,7 +51,7 @@ async function clear_previous_record() {
         if (!db) {
             await initializeIndexedDB();
         }
-
+        savePageNumberToCookie('');
         return new Promise((resolve, reject) => {
             const transaction = db.transaction("records", "readwrite");
             const objectStore = transaction.objectStore("records");
@@ -74,24 +107,20 @@ async function addRecordToIndexedDB(records_arr, onSuccess, onDuplicate) {
     const store = transaction.objectStore("records");
 
     for (const record of records_arr) {
-        console.log("Processing record:", record);
-
         try {
             const existingRecord = await checkRecordExists(store, record.uniqueKey);
 
             if (!existingRecord) {
                 await addRecord(store, record);
-                console.log("Record added successfully:", record);
                 onSuccess();
             } else {
-                console.log("Duplicate record found:", record.uniqueKey);
                 onDuplicate();
             }
         } catch (err) {
             console.error("Error processing record:", err);
         }
     }
-
+    total_records_view_update();
     transaction.oncomplete = () => {
         console.log("Transaction completed.");
     };
@@ -100,7 +129,6 @@ async function addRecordToIndexedDB(records_arr, onSuccess, onDuplicate) {
         console.error("Transaction error:", err.target.error);
     };
 }
-
 // Helper function to check if a record exists
 function checkRecordExists(store, uniqueKey) {
     return new Promise((resolve, reject) => {
@@ -127,6 +155,7 @@ function updateRecordNumbers(totalRecords, uniqueRecords, duplicateRecords) {
     // $('#unique').text(uniqueRecords);
     // $('#duplicate').text(duplicateRecords);
 }
+
 document.getElementById("startButton").addEventListener("click", () => {
     try {
         $("#startButton").css("display", "none");
@@ -174,7 +203,8 @@ document.getElementById("startButton").addEventListener("click", () => {
             const response = JSON.parse(event.data);
             const page_num = response.page_num ?? '';
             const rowsData = response.data;
-            if (!isNaN(page_num)) {
+            if (page_num !== '' && !isNaN(page_num)) {
+                savePageNumberToCookie(page_num);
                 $('#pages_scraped').text(page_num);
             }
             else {
@@ -185,7 +215,7 @@ document.getElementById("startButton").addEventListener("click", () => {
                 rowsData,
                 () => {
                     addRowsToTable(rowsData, tableBody);
-                    showToast(`${rowsData.length} Rows added successfully`);
+                    showToast(`Rows added successfully`);
                 },
                 () => {
                     showErrorToast(`Duplicate data found`);
@@ -206,6 +236,7 @@ document.getElementById("startButton").addEventListener("click", () => {
         eventSource.close();
     }
 });
+
 
 function showLoadingModal(message) {
     $("#loadingMessage").text(message);

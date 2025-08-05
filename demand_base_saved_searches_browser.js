@@ -49,7 +49,6 @@ async function loadUrl() {
     ]);
 
 
-
     page.on('response', async (response) => {
         if (response.url().includes('/search/v2/content/contacts/search?fieldSets=fullRecords')) {
             const request = response.request();
@@ -308,7 +307,7 @@ async function loadFromPage(url, limit, page_num, res) {
                 randomWaitTime = getRandomNumber(7500, 9500);
                 await page.waitForTimeout(randomWaitTime);
                 }
-                const originalRequest = interceptedRequests[0];
+                const originalRequest = interceptedRequests[interceptedRequests.length - 1];
                 let modifiedHeaders = {
                     ...originalRequest.headers,
                     iv_header_page: String(page_num),

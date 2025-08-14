@@ -49,6 +49,7 @@ async function loadUrl() {
     ]);
 
 
+
     page.on('response', async (response) => {
         if (response.url().includes('/search/v2/content/contacts/search?fieldSets=fullRecords')) {
             const request = response.request();
@@ -302,12 +303,12 @@ async function loadFromPage(url, limit, page_num, res) {
         let has_data = true;
         while (has_data) {
             try {
-                if (!isNaN(page_num) && page_num % 5 === 0) {
+                if (!isNaN(page_num) && page_num % 15 === 0) {
                 await click_next_page();
-                randomWaitTime = getRandomNumber(7500, 9500);
+                randomWaitTime = getRandomNumber(3500, 5500);
                 await page.waitForTimeout(randomWaitTime);
                 }
-                const originalRequest = interceptedRequests[interceptedRequests.length - 1];
+                const originalRequest = interceptedRequests[interceptedRequests.length-1];
                 let modifiedHeaders = {
                     ...originalRequest.headers,
                     iv_header_page: String(page_num),
@@ -346,7 +347,7 @@ async function loadFromPage(url, limit, page_num, res) {
                 let res_data = { page_num, data: response_arr };
                 res.write(`data: ${JSON.stringify(res_data)}\n\n`);
                 page_num++;
-                randomWaitTime = getRandomNumber(1500, 9500);
+                randomWaitTime = getRandomNumber(1500, 5500);
                 await page.waitForTimeout(randomWaitTime);
             } catch (error) {
                 console.error(`Error in loadFromPage: ${error.message}`);
